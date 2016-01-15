@@ -1,282 +1,141 @@
 rm(list = ls())
+library(ggbiplot)
 
+####Function
+get_alternate_allele <- function(reference_alleles) {
+  sapply(reference_alleles, function(reference_allele) {
+    s1 = reference_allele*(1-fcoeff)/fcoeff
+    s2 = (1-reference_allele)*(1-fcoeff)/fcoeff
+    rbeta(n = 1, shape1 = s1,shape2 = s2)
+  })
+}
 
-generate_sample <- function() {
+get_genotype_probability <- function(alternate_allele, R) {
+  if(R!=0) {
+    p_associated = c((1-alternate_allele)^2, 2*R*alternate_allele*(1-alternate_allele), R^2 * alternate_allele^2 )
+    p_associated/(sum(p_associated) + (1-alternate_allele^2))
+  }
+  else c((1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2)
+}
+
+get_associated_probability <- function(alternate_allele, R) {
+  p_associated = c((1-alternate_allele)^2, 2*R*alternate_allele*(1-alternate_allele), R^2 * alternate_allele^2 )
+  scaled = sum(p_associated) + (1-alternate_allele^2)
+  unname(p_associated/scaled)
+}
+
+generate_SNPs <- function(SNP_struct, populations, SNP_names) {
+  ###Generating datas
+  data = sapply(1:length(SNP_struct), function(snp_num){
+    data = sapply(1:length(populations), function(sample) {
+      pCase = get_genotype_probability(populations[[sample]]$alternate_allele[snp_num], SNP_struct[snp_num])
+      pControl = get_genotype_probability(populations[[sample]]$alternate_allele[snp_num], 0)
+      cases=sample(c(0,1,2), size = populations[[sample]]$case, prob = pCase, replace = TRUE)
+      controls=sample(c(0,1,2), size = populations[[sample]]$control, prob = pControl, replace = TRUE)
+      c(cases, controls)
+    })
+    unlist(data)
+  })
   
+  ###Formatting matrix
+  row_names = c(unlist(sapply(1:length(populations), function(sample) {
+    names = c()
+    if(populations[[sample]]$case > 0) names = c(paste('Case', sample, 1:populations[[sample]]$case,sep='_'))
+    if(populations[[sample]]$control > 0) names = c(names, paste('Control', sample, 1:populations[[sample]]$control,sep='_'))
+    names
+  })))
+  
+  generated_SNP = matrix(data, ncol = length(SNP_struct), nrow = length(row_names), dimnames = list(row_names, SNP_names))
+  generated_SNP = as.matrix(generated_SNP[ order(rownames(generated_SNP)), ])
+  
+  populations$SNP_name = SNP_names
+  list(generated_SNP = generated_SNP, population_structure = populations)
 }
 
-##Enum Category to pass as argument
-##Custom categor with nbCase/nbContrl per population, data struct
-####population = c(nbCase, nbControl)
-####population 3 is optionanl
-
-###### Generation for Category 1, 2 sub-populations
-
-###### Generate catefory first and pass it as arguments to a generateSample Function.
-###### Arguments, differentiation according to population structure, association with the disease.
-###### If there is association wih the disease define r.
-
-
-##### Generate allele frequencies for 2 different populations
-
-generate_allele_frequencies <- function(RP) {
-  AP = numeric(length(RP))  
-  for(i in 1:length(RP)) {
-    s1 = (RP[i]*(1-fcoeff))/fcoeff
-    s2 = ((1-RP[i])*(1-fcoeff))/fcoeff
-    AP[i] = rbeta(n = 1, shape1 = s1,shape2 = s2)
-  }
-  return(matrix(ncol = length(RP), data = c(RP,AP)))
+scenario <- function(scenario, populations, SNP_struct) {
+  switch (scenario,
+          nonstrat = { # No difference in reference allele frequency between populations
+            RP = replicate(length(SNP_struct), runif(1,0.4,0.5))
+            populations = lapply(1:length(populations), function(population){
+              populations[[population]]['alternate_allele'] = list(get_alternate_allele(RP))
+              populations[[population]]
+            })
+            SNPnames = sapply(1:length(SNP_struct), function(snp_num){c(paste0('Snp_NS_',snp_num,"_R",SNP_struct[snp_num]))})
+            generate_SNPs(SNP_struct = SNP_struct, populations, SNP_names = SNPnames)
+          },
+          strat = { # Difference in reference allele frequency between populations
+            populations = lapply(1:length(populations), function(population){
+              if(population %% 2 == 0) {
+                RP = replicate(length(SNP_struct), runif(1,0.7,0.9))
+              }
+              else {
+                RP = replicate(length(SNP_struct), runif(1,0.1,0.3))
+              }
+              populations[[population]]['alternate_allele'] = list(get_alternate_allele(RP))
+              populations[[population]]
+            })
+            SNPnames = sapply(1:length(SNP_struct), function(snp_num){c(paste0('Snp_S_',snp_num,"_R",SNP_struct[snp_num]))})
+            generate_SNPs(SNP_struct = SNP_struct, populations,  SNP_names = SNPnames)
+          }
+  )
 }
 
-generate_genotypes <- function(AF, population_struct, associated_with_disease) {
-  if (associated_with_disease == FALSE) {
-    for(i in seq(1, length(AF), by = 2) ) {
-      pCase1 = c(AF[i]^2, (2*AF[i])*(1-AF[i+1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-      Cases1 = rbinom(size=2,n = population_struct[i],prob = pCase1)
-      ##### Cases from population 2
-      pCase2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-      Cases2 = rbinom(size=2,n = 400,prob = pCase2)
-    }
-  }
-  else {
-    
-  }
-}
-
-####### Scenario 1: Random SNP with no differentiation and no association with the disease
-
-RP1 = runif(1,0.4,0.5) ##### ancestral allele frequency for population 1
-RP2 = RP1 ##### ancestral allele frequency for population 2
+####Constants
+C1 = list(P1 = c(case = 200, control = 400), P2 = c(case = 400, control = 200))
+C2 = list(P1 = c(case = 400, control = 200), P2 = c(case = 200, control = 400))
+C3 = list(P1 = c(case = 300, control = 0), P2 = c(case = 300, control = 600))
+C4 = list(P1 = c(case = 300, control = 200), P2 = c(case = 200, control = 100), P3 = c(case = 100, control = 300))
+C5 = list(P1 = c(case = 200, control = 0), P2 = c(case = 400, control = 200), P3 = c(case = 0, control = 400))
 
 fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
 
-population_struct = c(200,400,400,200)
+######Scenarios
+Result_S1 = scenario(scenario="nonstrat", populations=C1, SNP_struct = c(0,0,0))
+Result_S2 = scenario(scenario="strat", populations=C1, SNP_struct = c(0,0,0))
+Result_S3 = scenario(scenario="nonstrat", populations=C1, SNP_struct = 4)
+Result_S4 = scenario(scenario="strat", populations=C1, SNP_struct = 4)
 
-AF = generate_allele_frequencies(c(RP1,RP2))
+Result_C1 = scenario(scenario="strat", populations=C1, SNP_struct = c(0,0,0,5))
+Result_C2 = scenario(scenario="nonstrat", populations=C1, SNP_struct = c(0,0,0,5))
 
-generate_genotypes(AF, population_struct, associated_with_disease = TRUE)
+Result_C2 = scenario(scenario="nonstrat", populations=list(c(case = 200, control = 0), c(case = 400, control = 200), c(case = 0, control = 400), c(case=500, control=200)), SNP_struct = c(0,0,0,0,0))
 
-######## Generate the genotypes for 200 Cases from pop1 and 400 Cases from pop2
+##Alongside R, pass a Vector indicating if this SNP should be stratified
 
-##### Cases from population 1
+######Tests
+##### SNP data with SNPs on the columns and samples on the rows. 
+#SNPdata = cbind(Result_S1$generated_SNP, Result_S2$generated_SNP, Result_S3$generated_SNP, Result_S4$generated_SNP)
+SNPdata = cbind(Result_S2$generated_SNP, Result_S1$generated_SNP)
+#SNPdata = cbind(Result_C1$generated_SNP, Result_C2$generated_SNP)
 
-pCase1 = c(AP[1]^2, (2*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
+#sum(Result_S2[[1]][1:600,6])
+#sum(Result_S2[[1]][600:1200,6])
 
-Cases1 = rbinom(size=2,n = 200,prob = pCase1)
-
-##### Cases from population 2
-
-pCase2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cases2 = rbinom(size=2,n = 400,prob = pCase2)
-
-
-######## Generate the genotypes for 400 Controls from pop1 and 200 Controls from pop2
-
-##### Controls from population 1
-
-pCont1 = c(AP[1]^2, (2*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont1 = rbinom(size=2,n = 400,prob = pCont1)
-
-##### Controls from population 2
-
-pCont2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont2 = rbinom(size=2,n = 200,prob = pCont2)
-
-
-###### SNP data
-
-SNP1 = c(Cases1,Cases2,Cont1,Cont2)
-
-
-#############################################################################################################################
-
-####### Scenario 2: Random SNP with differentiation and no association with the disease
-
-RP1 = runif(1,0.7,0.9) ##### ancestral allele frequency for population 1
-RP2 = runif(1,0.1,0.3) ##### ancestral allele frequency for population 2
-
-RP = c(RP1,RP2)
-
-fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
-
-##### Generate allele frequencies for 2 different populations
-
-AP = numeric(length(RP))
-
-for(i in 1:length(RP)) {
-     s1 = (RP[i]*(1-fcoeff))/fcoeff
-     s2 = ((1-AP[i])*(1-fcoeff))/fcoeff
-     AP[i] = rbeta(n = 1, shape1 = s1,shape2 = s2)
-}
-
-######## Generate the genotypes for 200 Cases from pop1 and 400 Cases from pop2
-
-##### Cases from population 1
-
-pCase1 = c(AP[1]^2, (2*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cases1 = rbinom(size=2,n = 200,prob = pCase1)
-
-##### Cases from population 2
-
-pCase2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cases2 = rbinom(size=2,n = 400,prob = pCase2)
-
-
-######## Generate the genotypes for 400 Controls from pop1 and 200 Controls from pop2
-
-##### Controls from population 1
-
-pCont1 = c(AP[1]^2, (2*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont1 = rbinom(size=2,n = 400,prob = pCont1)
-
-##### Controls from population 2
-
-pCont2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont2 = rbinom(size=2,n = 200,prob = pCont2)
-
-
-###### SNP data
-
-SNP2 = c(Cases1,Cases2,Cont1,Cont2)
-
-#############################################################################################################################
-
-####### Scenario 3: Random SNP without differentiation and association with the disease
-
-RP1 = runif(1,0.4,0.5) ##### ancestral allele frequency for population 1
-RP2 = RP1 ##### ancestral allele frequency for population 2
-
-RP = c(RP1,RP2)
-
-fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
-
-##### Generate allele frequencies for 2 different populations
-
-AP = numeric(length(RP))
-
-for(i in 1:length(RP)) {
-     s1 = (RP[i]*(1-fcoeff))/fcoeff
-     s2 = ((1-AP[i])*(1-fcoeff))/fcoeff
-     AP[i] = rbeta(n = 1, shape1 = s1,shape2 = s2)
-}
-
-######## Generate the genotypes for 200 Cases from pop1 and 400 Cases from pop2
-
-#### For association let R = 1.5. R is the relative risk
-
-##### Cases from population 1
-R = 4
-
-pCase1 = c((R^2 * AP[1]^2), (2*R*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-scaled = sum(pCase1) + (1-AP[1])^2
-pCase1 = pCase1/scaled
-Cases1 = rbinom(size=2,n = 200,prob = pCase1)
-
-##### Cases from population 2
-
-pCase2 = c((R^2 * AP[2]^2), (2*R*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-scaled = sum(pCase2) + (1-AP[2])^2
-pCase2 = pCase2/scaled
-Cases2 = rbinom(size=2,n = 400,prob = pCase2)
-
-
-######## Generate the genotypes for 400 Controls from pop1 and 200 Controls from pop2
-
-##### Controls from population 1
-
-pCont1 = c(AP[1]^2, (2*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont1 = rbinom(size=2,n = 400,prob = pCont1)
-
-##### Controls from population 2
-
-pCont2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont2 = rbinom(size=2,n = 200,prob = pCont2)
-
-
-###### SNP data
-
-SNP3 = c(Cases1,Cases2,Cont1,Cont2)
-
-#############################################################################################################################
-
-####### Scenario 4: Random SNP with differentiation and with association with the disease
-
-RP1 = runif(1,0.7,0.9) ##### ancestral allele frequency for population 1
-RP2 = runif(1,0.1,0.3) ##### ancestral allele frequency for population 2
-
-RP = c(RP1,RP2)
-
-fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
-
-##### Generate allele frequencies for 2 different populations
-
-AP = numeric(length(RP))
-
-for(i in 1:length(RP)) {
-     s1 = (RP[i]*(1-fcoeff))/fcoeff
-     s2 = ((1-AP[i])*(1-fcoeff))/fcoeff
-     AP[i] = rbeta(n = 1, shape1 = s1,shape2 = s2)
-}
-
-######## Generate the genotypes for 200 Cases from pop1 and 400 Cases from pop2
-
-#### For association let R = 1.5. R is the relative risk
-
-##### Cases from population 1
-R = 4
-
-pCase1 = c((R^2 * AP[1]^2), (2*R*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-scaled = sum(pCase1) + (1-AP[1])^2
-pCase1 = pCase1/scaled
-Cases1 = rbinom(size=2,n = 200,prob = pCase1)
-
-##### Cases from population 2
-
-pCase2 = c((R^2 * AP[2]^2), (2*R*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-scaled = sum(pCase2) + (1-AP[2])^2
-pCase2 = pCase2/scaled
-Cases2 = rbinom(size=2,n = 400,prob = pCase2)
-
-
-######## Generate the genotypes for 400 Controls from pop1 and 200 Controls from pop2
-
-##### Controls from population 1
-
-pCont1 = c(AP[1]^2, (2*AP[1])*(1-AP[1]))   ##### for 0 the prob is (1-p2[1])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont1 = rbinom(size=2,n = 400,prob = pCont1)
-
-##### Controls from population 2
-
-pCont2 = c(AP[2]^2, (2*AP[2])*(1-AP[2]))   ##### for 0 the prob is (1-p2[2])^2 .  The first value in the vector is the prob for 2 and the sencond value is the prob for 1. 
-
-Cont2 = rbinom(size=2,n = 200,prob = pCont2)
-
-
-###### SNP data
-
-SNP4 = c(Cases1,Cases2,Cont1,Cont2)
-
-###### Test the models for the SNP data 
-
-SNPdata = cbind(SNP1,SNP2,SNP3,SNP4)      ##### SNP data with SNPs on the columns and samples on the rows. 
-pc = c(rep("A",200),rep("B",400),rep("A",400),rep("B",200))    #### Generate the pc vector for population group identification. 
+#### Generate the pc vector for population group identification. 
+PC_simulated = c(rep("A",200),rep("B",400),rep("A",400),rep("B",200))
 y = c(rep(1,600),rep(0,600))   ###### Generate the response vector Y. This will have 600 ones and 600 zeros.
-summary(glm(y~SNPdata))        ###### Model without pc
-summary(glm(y~SNPdata+pc))     ###### Model with pc
 
+##########WHY
+summary(glm(y~SNPdata, family=binomial(logit)))        ###### Model without pc
 
+sum(SNPdata[1:600,1])
+sum(SNPdata[600:1200,1])
 
-######################################################################################
-#### Change the min max of uniform distribution for RP1 and RP2. For example in the fourth scenario RP1 comes from 0.7,0.9 and RP2 from 0.1,0.3. Instead make it RP1 from 0.1,0.3 and RP2 from 0.7 and 0.9. 
-##### 
+sum(SNPdata[1:600,3])
+sum(SNPdata[600:1200,3])
+
+sum(SNPdata[1:600,4])
+sum(SNPdata[600:1200,4])
+#############
+
+ca = prcomp(SNPdata, scale. = TRUE) 
+#print(ca)
+#summary(ca)
+PC_computed = ca$x[,1]<0
+
+summary(glm(y~SNPdata, family=binomial(logit)))        ###### Model without pc
+summary(glm(y~SNPdata+PC_computed))
+summary(glm(y~SNPdata+PC_simulated))
+
+ggbiplot(prcomp(SNPdata, scale. = TRUE))
+ggbiplot(prcomp(SNPdata), obs.scale = 1, var.scale = 1, ellipse = TRUE, circle = TRUE)
