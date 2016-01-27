@@ -24,11 +24,12 @@ get_associated_probability <- function(alternate_allele, R) {
   unname(p_associated/scaled)
 }
 
-generate_SNPs <- function(SNP_struct, populations, SNP_names) {
+generate_SNPs <- function(SNP_struct, populations) {
+  a = c()
   ###Generating datas
-  data = sapply(1:length(SNP_struct), function(snp_num){
+  data = sapply(1:length(SNP_struct$SNP_association), function(snp_num){
     data = sapply(1:length(populations), function(sample) {
-      pCase = get_genotype_probability(populations[[sample]]$alternate_allele[snp_num], SNP_struct[snp_num])
+      pCase = get_genotype_probability(populations[[sample]]$alternate_allele[snp_num], SNP_struct$SNP_association[snp_num])
       pControl = get_genotype_probability(populations[[sample]]$alternate_allele[snp_num], 0)
       cases=sample(c(0,1,2), size = populations[[sample]]$case, prob = pCase, replace = TRUE)
       controls=sample(c(0,1,2), size = populations[[sample]]$control, prob = pControl, replace = TRUE)
@@ -45,39 +46,42 @@ generate_SNPs <- function(SNP_struct, populations, SNP_names) {
     names
   })))
   
-  generated_SNP = matrix(data, ncol = length(SNP_struct), nrow = length(row_names), dimnames = list(row_names, SNP_names))
-  generated_SNP = as.matrix(generated_SNP[ order(rownames(generated_SNP)), ])
-  
-  populations$SNP_name = SNP_names
-  list(generated_SNP = generated_SNP, population_structure = populations)
+  generated_SNP = matrix(data, ncol = length(SNP_struct$SNP_association), nrow = length(row_names), dimnames = list(row_names, SNP_struct$SNP_names))
+  as.matrix(generated_SNP[ order(rownames(generated_SNP)), ])
 }
 
-scenario <- function(scenario, populations, SNP_struct) {
-  switch (scenario,
-          nonstrat = { # No difference in reference allele frequency between populations
-            RP = replicate(length(SNP_struct), runif(1,0.4,0.5))
-            populations = lapply(1:length(populations), function(population){
-              populations[[population]]['alternate_allele'] = list(get_alternate_allele(RP))
-              populations[[population]]
-            })
-            SNPnames = sapply(1:length(SNP_struct), function(snp_num){c(paste0('Snp_NS_',snp_num,"_R",SNP_struct[snp_num]))})
-            generate_SNPs(SNP_struct = SNP_struct, populations, SNP_names = SNPnames)
-          },
-          strat = { # Difference in reference allele frequency between populations
-            populations = lapply(1:length(populations), function(population){
-              if(population %% 2 == 0) {
-                RP = replicate(length(SNP_struct), runif(1,0.7,0.9))
-              }
-              else {
-                RP = replicate(length(SNP_struct), runif(1,0.1,0.3))
-              }
-              populations[[population]]['alternate_allele'] = list(get_alternate_allele(RP))
-              populations[[population]]
-            })
-            SNPnames = sapply(1:length(SNP_struct), function(snp_num){c(paste0('Snp_S_',snp_num,"_R",SNP_struct[snp_num]))})
-            generate_SNPs(SNP_struct = SNP_struct, populations,  SNP_names = SNPnames)
-          }
-  )
+scenario <- function(populations, SNP_association, strat_percentage) {
+  if(strat_percentage>1) strat_percentage = strat_percentage/100
+  if(strat_percentage>100) strat_percentage = 1
+  sort(SNP_association)
+  stratified_SNP = min(trunc(strat_percentage * length(SNP_association)), table(SNP_association)["0"])
+
+  #Generating stratified allele frequency
+  if(stratified_SNP>0) {
+    populations = lapply(1:length(populations), function(population){
+      if(population %% 2 == 0) {
+        RP = replicate(stratified_SNP, runif(1,0.7,0.9))
+      }
+      else {
+        RP = replicate(stratified_SNP, runif(1,0.1,0.3))
+      }
+      populations[[population]]['alternate_allele'] = list(get_alternate_allele(RP))
+      populations[[population]]
+    })
+  }
+
+
+  #Generating unstratified allele frequency
+  RP = replicate(length(SNP_association) - stratified_SNP, runif(1,0.4,0.5))
+  populations = lapply(1:length(populations), function(population){
+    populations[[population]]['alternate_allele'] = mapply(c, populations[[population]]['alternate_allele'], list(get_alternate_allele(RP)), SIMPLIFY=FALSE)
+    populations[[population]]
+  })
+  SNP_names = c(sapply(1:stratified_SNP, function(snp_num){c(paste0('Snp_S_',snp_num,"_R",SNP_association[snp_num]))}), 
+                sapply((stratified_SNP+1):length(SNP_association), function(snp_num){c(paste0('Snp_NS_',snp_num,"_R",SNP_association[snp_num]))}))
+  SNP_struct = list(SNP_association=SNP_association, SNP_names=SNP_names)
+  generated_SNP = generate_SNPs(SNP_struct = SNP_struct, populations = populations)
+  list(generated_SNP = generated_SNP, population_structure = populations)
 }
 
 ####Constants
@@ -90,22 +94,24 @@ C5 = list(P1 = c(case = 200, control = 0), P2 = c(case = 400, control = 200), P3
 fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
 
 ######Scenarios
-Result_S1 = scenario(scenario="nonstrat", populations=C1, SNP_struct = c(0,0,0))
-Result_S2 = scenario(scenario="strat", populations=C1, SNP_struct = c(0,0,0))
-Result_S3 = scenario(scenario="nonstrat", populations=C1, SNP_struct = 4)
-Result_S4 = scenario(scenario="strat", populations=C1, SNP_struct = 4)
+SNPdata = scenario(populations=C1, SNP_association = c(0,0,0,4), strat_percentage = 50)
 
-Result_C1 = scenario(scenario="strat", populations=C1, SNP_struct = c(0,0,0,5))
-Result_C2 = scenario(scenario="nonstrat", populations=C1, SNP_struct = c(0,0,0,5))
+#Result_S1 = scenario(scenario="nonstrat", populations=C1, SNP_struct = c(0,0,0))
+#Result_S2 = scenario(scenario="strat", populations=C1, SNP_struct = c(0,0,0))
+#Result_S3 = scenario(scenario="nonstrat", populations=C1, SNP_struct = 4)
+#Result_S4 = scenario(scenario="strat", populations=C1, SNP_struct = 4)
 
-Result_C2 = scenario(scenario="nonstrat", populations=list(c(case = 200, control = 0), c(case = 400, control = 200), c(case = 0, control = 400), c(case=500, control=200)), SNP_struct = c(0,0,0,0,0))
+#Result_C1 = scenario(scenario="strat", populations=C1, SNP_struct = c(0,0,0,5))
+#Result_C2 = scenario(scenario="nonstrat", populations=C1, SNP_struct = c(0,0,0,5))
+
+#Result_C2 = scenario(scenario="nonstrat", populations=list(c(case = 200, control = 0), c(case = 400, control = 200), c(case = 0, control = 400), c(case=500, control=200)), SNP_struct = c(0,0,0,0,0))
 
 ##Alongside R, pass a Vector indicating if this SNP should be stratified
 
 ######Tests
 ##### SNP data with SNPs on the columns and samples on the rows. 
 #SNPdata = cbind(Result_S1$generated_SNP, Result_S2$generated_SNP, Result_S3$generated_SNP, Result_S4$generated_SNP)
-SNPdata = cbind(Result_S2$generated_SNP, Result_S1$generated_SNP)
+#SNPdata = cbind(Result_S2$generated_SNP, Result_S1$generated_SNP)
 #SNPdata = cbind(Result_C1$generated_SNP, Result_C2$generated_SNP)
 
 #sum(Result_S2[[1]][1:600,6])
@@ -116,6 +122,7 @@ PC_simulated = c(rep("A",200),rep("B",400),rep("A",400),rep("B",200))
 y = c(rep(1,600),rep(0,600))   ###### Generate the response vector Y. This will have 600 ones and 600 zeros.
 
 ##########WHY
+SNPdata = SNPdata[[1]]
 summary(glm(y~SNPdata, family=binomial(logit)))        ###### Model without pc
 
 sum(SNPdata[1:600,1])
