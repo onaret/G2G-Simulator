@@ -2,20 +2,30 @@
 cat("\014")  
 
 ####Function
+compute_multiple <- function(populations= NULL, size = NULL, SNP_association, stratification_rate, times) {
+  sapply(1:times, function(time){
+    res = scenario(populations, size, SNP_association, stratification_rate)
+    trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/", Sys.time(),"-N",time, "pvalues.png"))
+    write.csv2(x = res$pvalues, file = paste0("gen-data/", Sys.time(),"-N",time,"-pvalues.csv"))
+    write.csv2(x = res$SNP_struct,file = paste0("gen-data/", Sys.time(),"-N",time,"-study-infos.csv"))
+    write.csv2(x = res$populations,file = paste0("gen-data/", Sys.time(),"-N",time,"-populations.csv"))})}
+
 scenario <- function(populations= NULL, size = NULL, SNP_association, stratification_rate) {
   stratified_SNP_qtt = get_stratified_SNPs_qtt(stratification_rate, SNP_association)
   populations = generate_population_structure(populations, size)
   SNP_association = sort(SNP_association)
   SNP_struct = generate_SNPs_frequencies(stratified_SNP_qtt, SNP_association, populations)
-  SNPs = generate_SNPs(SNP_struct, populations)
-  pvalues = analyse(SNPs, populations)
+  #SNPs = generate_SNPs(SNP_struct, populations)
+  pvalues = analyse(generate_SNPs(SNP_struct, populations), populations)
   trace_plot(pvalues)
   populations = rbind(populations, matrix(c(sum(populations[,"Case"]), sum(populations[,"Control"])),ncol = 2, nrow = 1, dimnames = list("Total") ) )
-  print(paste(Sys.time(),"Done", sep=": "))
-  list(`SNPs` = SNPs, 
-       `population` = populations, 
-       `SNP_struct` = SNP_struct,
-       `pvalues` = pvalues)}
+  #print(paste(Sys.time(),"Done", sep=": "))
+  #summary_sim = summary_sim(results,stratified_SNP_qtt,SNP_association)
+  
+  list(#`SNPs` = SNPs,
+    `populations` = populations,
+    `SNP_struct` = SNP_struct,
+    `pvalues` = pvalues)}
 
 get_stratified_SNPs_qtt <- function(stratification_rate, SNP_association) {
   if(stratification_rate>1) stratification_rate = stratification_rate/100
@@ -103,30 +113,32 @@ analyse <- function(SNPs, populations) {
   print(paste(Sys.time(),"Computing logistic regression without PC", sep=": "))
   WO_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP])))[,4][2])
   
-  as.data.frame(apply(data.frame(W_computed_PC, W_simulated_PC, WO_PC, row.names = colnames(SNPs)),2 , function(pval) {
-    threshold = 3.63*10^-8
+  apply(data.frame(W_computed_PC, W_simulated_PC, WO_PC, row.names = colnames(SNPs)),2 , function(pval) {
     signiff = c()
     signiff[threshold < pval] <- 1
     signiff[threshold*0.5 < pval & pval <= threshold] <- 2
     signiff[threshold*0.05 < pval & pval <= threshold*0.5] <- 3
     signiff[threshold*0.005 < pval & pval <= threshold*0.05] <- 4
     signiff[pval <= threshold*0.005] <- 5
-    data.frame(pval, `signifficance` = factor(signiff, level=1:5, label=c("ns","*","**","***","+")))}))}
+    data.frame(pval, `signifficance` = factor(signiff, level=1:5, label=c("ns","*","**","***","+")))})}
 
 
-trace_plot <- function(data) {
+trace_plot <- function(data, save = FALSE, file) {
   print(paste(Sys.time(),"Ploting...", sep=": "))
-  par(mfrow=c(3,2))
-  qq(data$WO_PC.pval,"without_PC")
-  qq(data$W_simulated_PC.pval, "with_simulated_PC")
-  qq(data$W_computed_PC.pval,"with_computed_PC")
   
-  plot(-log(data$W_computed_PC.pval), main='without_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
-  abline(h = log10(3.63*10^-8), untf = FALSE)
-  plot(-log(data$W_simulated_PC.pval), main='with_computed_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
-  abline(h = log10(3.63*10^-8), untf = FALSE)
-  plot(-log(data$WO_PC.pval), main='with_simulated_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
-  abline(h = log10(3.63*10^-8), untf = FALSE)}
+  if(save == TRUE) png(file)
+  par(mfrow=c(3,2))
+  qq(data$WO_PC$pval,"without_PC")
+  qq(data$W_simulated_PC$pval, "with_simulated_PC")
+  qq(data$W_computed_PC$pval,"with_computed_PC")
+  
+  plot(-log(data$WO_PC$pval), main='without_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
+  abline(h = -log10(threshold), untf = FALSE, col = "red")
+  plot(-log(data$W_simulated_PC$pval), main='with_simulated_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
+  abline(h = -log10(threshold), untf = FALSE, col = "red")
+  plot(-log(data$W_computed_PC$pval), main='with_computed_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
+  abline(h = -log10(threshold), untf = FALSE, col = "red")
+  if(save == TRUE) dev.off()}
 
 qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
   o = -log10(sort(pvector,decreasing=F))
@@ -134,6 +146,17 @@ qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
   plot(e,o,pch=19,cex=0.25, main = title,xlab=expression(Expected~~-log[10](italic(p))), ylab=expression(Observed~~-log[10](italic(p))),xlim=c(0,max(e)),ylim=c(0,max(e)))
   lines(e,e,col="red")
   plot}
+
+summary_sim <- function(results,stratified_SNP_qtt,SNP_association) {
+  before_associated = (length(SNP_association) - sum(SNP_association>0))  
+  back = mapply(function(result, name) {
+    fpstr = sum(result$signiff[0:stratified_SNP_qtt] != "ns")
+    fpnonstr = sum(result$signiff[stratified_SNP_qtt:before_associated] != "ns")
+    fn = sum(result$signiff[before_associated:length(SNP_association)] == "ns")
+    matrix(c(fpstr,fpnonstr,fn),  dim=list(c("fpstr","fpnonstr","fn"), name))
+  }, results, names(results) )
+  back
+}
 
 ####Constants
 C1 = list(`P1` = list(`case` = 201, `control` = 401), `P2` = list(`case` = 399, `control`  = 199))
@@ -143,10 +166,14 @@ C4 = list(`P1` = c(`case` = 300, `control` = 200), `P2` = c(`case` = 200, `contr
 C5 = list(`P1` = c(`case` = 200, `control` = 0), `P2` = c(`case` = 400, `control` = 200), `P3` = c(`case` = 0, `control` = 400))
 
 fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
-
+threshold = 3.63*10^-8
 ######Scenarios
 #SNPs_1M = scenario(populations=C1, SNP_association = c(rep(0,100000), seq(1,2, by = 0.1)), stratification_rate = 0.05)
-SNPs_test = scenario(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05)
+#SNPs_test = scenario(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05)
+
+#scenario(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05)
+#compute_multiple(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05, times = 1)
+compute_multiple(populations = 5, size = 1200, SNP_association = c(rep(0,100000), seq(1,2, by = 0.01)), stratification_rate = 0.05, times = 2)
 
 ####TODO
 ##Compute power difference with and without PC to find causal SNPs in function of R
