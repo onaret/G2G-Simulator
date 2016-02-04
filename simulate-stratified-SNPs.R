@@ -1,18 +1,18 @@
 rm(list = ls())
 cat("\014")  
 #library(rjson)
-setwd("/home/zod/Documents/Workspace/EPFL")
+setwd("/home/onaret/workspace")
 ####Function
-compute_multiple <- function(populations= NULL, size = NULL, neutral, neutral_stratification_rate, causal_S, causal_NS, times) {
+compute_multiple <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS, times) {
   sapply(1:times, function(time){
     print(paste(Sys.time(),"Executing scenario", time, sep=": "))
-    res = scenario(populations, size, neutral, neutral_stratification_rate, causal_S, causal_NS)
+    res = scenario(populations, size, neutral, neutral_S_rate, causal_S, causal_NS)
     write(res, time)
   })
   print(paste(Sys.time(),"Done", sep=": "))}
 
-scenario <- function(populations= NULL, size = NULL, neutral, neutral_stratification_rate, causal_S, causal_NS) {
-  neutral_S = get_stratified_SNPs_qtt(neutral_stratification_rate, neutral)
+scenario <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS) {
+  neutral_S = get_stratified_SNPs_qtt(neutral_S_rate, neutral)
   neutral_NS = neutral - neutral_S
   populations = generate_population_structure(populations, size)
   SNP_freq = generate_SNPs_frequencies(neutral_S, neutral_NS, causal_S, causal_NS, populations)
@@ -28,8 +28,7 @@ scenario <- function(populations= NULL, size = NULL, neutral, neutral_stratifica
     `SNP_freq` = SNP_freq,
     `SNP_struct` = SNP_struct,
     `pvalues` = pvalues,
-    `summary_sim` = summary_sim)
-}
+    `summary_sim` = summary_sim)}
 
 get_stratified_SNPs_qtt <- function(stratification_rate, neutral_SNPs) {
   if(stratification_rate>1) stratification_rate = stratification_rate/100
@@ -121,10 +120,10 @@ analyse <- function(SNPs, populations) {
   apply(data.frame(WO_PC, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs)),2 , function(pval) {
     signiff = c()
     signiff[threshold < pval] <- 1
-    signiff[threshold*0.5 < pval & pval <= threshold] <- 2
-    signiff[threshold*0.05 < pval & pval <= threshold*0.5] <- 3
-    signiff[threshold*0.005 < pval & pval <= threshold*0.05] <- 4
-    signiff[pval <= threshold*0.005] <- 5
+    signiff[threshold*0.1 < pval & pval <= threshold] <- 2
+    signiff[threshold*0.01 < pval & pval <= threshold*0.1] <- 3
+    signiff[threshold*0.001 < pval & pval <= threshold*0.01] <- 4
+    signiff[pval <= threshold*0.001] <- 5
     data.frame(pval, `signifficance` = factor(signiff, level=1:5, label=c("ns","*","**","***","+")))})}
 
 get_SNP_struct <- function(neutral_S, neutral_NS, causal_S, causal_NS) {
@@ -151,15 +150,15 @@ trace_plot <- function(data, save = FALSE, file) {
   if(save == TRUE) png(file, width = 960, height = 1440)
   par(mfrow=c(3,2))
   qq(data$WO_PC$pval,"without_PC")
-  plot(-log(data$WO_PC$pval), main='without_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
+  plot(-log10(data$WO_PC$pval), main='without_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
   abline(h = -log10(threshold), untf = FALSE, col = "red")
   
   qq(data$W_simulated_PC$pval, "with_simulated_PC")
-  plot(-log(data$W_simulated_PC$pval), main='with_simulated_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
+  plot(-log10(data$W_simulated_PC$pval), main='with_simulated_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
   abline(h = -log10(threshold), untf = FALSE, col = "red")
   
   qq(data$W_computed_PC$pval,"with_computed_PC")
-  plot(-log(data$W_computed_PC$pval), main='with_computed_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
+  plot(-log10(data$W_computed_PC$pval), main='with_computed_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
   abline(h = -log10(threshold), untf = FALSE, col = "red")
   if(save == TRUE) dev.off()}
 
@@ -172,12 +171,15 @@ qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
 
 write <- function(res, time) {
   end = Sys.time()
-  trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/", end,"-N",time, "pvalues.png"))
-  write.csv2(x = res$pvalues, file = paste0("gen-data/", end,"-N",time,"-pvalues.csv"))
-  write.csv2(x = res$SNP_freq,file = paste0("gen-data/", end,"-N",time,"-SNP_freq.csv"))
-  write.csv2(x = res$SNP_struct,file = paste0("gen-data/", end,"-N",time,"-SNP_struct.csv"))
-  write.csv2(x = res$populations,file = paste0("gen-data/", end,"-N",time,"-populations.csv"))
-  write.csv2(x = data.frame(`WO_PC`= res$summary_sim$WO_PC$total, `W_simulated_PC` = res$summary_sim$W_simulated_PC$total,`W_computed_PC` = res$summary_sim$W_computed_PC$total),file = paste0("gen-data/", end,"-N",time,"-summary_sim.csv"))
+  sequence <- sequence + 1
+  summary_sym = data.frame(`WO_PC`= res$summary_sim$WO_PC$total, `W_simulated_PC` = res$summary_sim$W_simulated_PC$total,`W_computed_PC` = res$summary_sim$W_computed_PC$total)
+  
+  trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/",sequence,"N",time,"-plots-(",end,").png"))
+  write.csv2(x = res$pvalues, file = paste0("gen-data/",sequence,"N",time,"-pvalues-(",end,").csv"))
+  write.csv2(x = res$SNP_freq, file = paste0("gen-data/",sequence,"N",time,"-SNP_freq-(",end,").csv"))
+  write.csv2(x = res$SNP_struct, file = paste0("gen-data/",sequence,"N",time,"-SNP_struct-(",end,").csv"))
+  write.csv2(x = res$populations, file = paste0("gen-data/",sequence,"N",time,"-populations-(",end,").csv"))
+  write.csv2(x = summary_sym, file = paste0("gen-data/",sequence,"N",time,"-psummary-sim-(",end,").csv"))
   #cat(toJSON(res$summary_sim), file = paste0("gen-data/", end,"-N",time,"-summary_sim.json"))
 }
 
@@ -190,30 +192,15 @@ C5 = list(`P1` = c(`case` = 200, `control` = 0), `P2` = c(`case` = 400, `control
 
 fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
 threshold = 3.63*10^-8
+sequence = 4
 ######Scenarios
-#SNPs_1M = scenario(populations=C1, SNP_association = c(rep(0,100000), seq(1,2, by = 0.1)), stratification_rate = 0.05)
-#SNPs_test = scenario(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05)
-
-#scenario(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05)
-#compute_multiple(populations = 5, size = 1200, SNP_association = c(rep(0,1200), seq(1,2, by = 0.1)), stratification_rate = 0.05, times = 1)
-#compute_multiple(populations = 5, size = 1200, SNP_association = c(rep(0,100000), seq(1,2, by = 0.01)), stratification_rate = 0.05, times = 20)
-
 compute_multiple(populations = c(`min`=2, `max`=8),
                  size = 1200, 
-                 neutral = 1200, 
-                 neutral_stratification_rate = 0.05, 
+                 neutral = 100000, 
+                 neutral_S_rate = 0.05, 
                  causal_NS = seq(1,2, by = 0.05),
                  causal_S = seq(1,2, by = 0.05),
                  times = 1000)
-
-#compute_multiple(
-#  populations = 5, 
-#  size = 1200, 
-#  neutral_SNPs = 100000, 
-#  neutral_stratification_rate = 0.05, 
-#  causal_SNPs = seq(1,2, by = 0.01),
-# causal_SNPs_stratified = seq(1,2, by = 0.01),
-# times = 20)
 
 ####TODO
 ##Compute power difference with and without PC to find causal SNPs in function of R
