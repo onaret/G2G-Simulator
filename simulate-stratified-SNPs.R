@@ -148,8 +148,8 @@ summary_sim <- function(pvalues, SNP_struct) {
 trace_plot <- function(data, save = FALSE, file) {
   ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=": ")), print(paste(Sys.time(),"Writting datas", sep=": "))) 
   
-  par(mfrow=c(3,2))
   if(save == TRUE) png(file, width = 960, height = 1440)
+  par(mfrow=c(3,2))
   qq(data$WO_PC$pval,"without_PC")
   plot(-log(data$WO_PC$pval), main='without_PC', ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
   abline(h = -log10(threshold), untf = FALSE, col = "red")
