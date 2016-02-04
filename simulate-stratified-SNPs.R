@@ -2,6 +2,7 @@ rm(list = ls())
 cat("\014")  
 #library(rjson)
 setwd("/home/onaret/workspace")
+#setwd("/home/zod/Documents/Workspace/EPFL")
 ####Function
 compute_multiple <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS, times) {
   sapply(1:times, function(time){
@@ -38,10 +39,12 @@ get_stratified_SNPs_qtt <- function(stratification_rate, neutral_SNPs) {
 generate_population_structure <- function(populations,size) {
   populations = {
     if(!is.list(populations))   {
-      populations = sample(c(populations["min"]:populations["max"]), size=1, prob=rep(1/7,7), replace = TRUE)
+      possible_pop_nb = populations["min"]:populations["max"]
+      populations = sample(c(possible_pop_nb), size=1, prob=rep(1/length(possible_pop_nb),length(possible_pop_nb)), replace = TRUE)
       populations = min(size, populations)
       populations = runif(populations,0,1)
       populations = round(populations/sum(populations) * size)
+      populations[1] = populations[1] + size - sum(populations)
       t(sapply(populations, function(strat_size, pop_id) {
         case_nb = round(strat_size*runif(1,0,1))
         #case_nb = round(strat_size*abs(rnorm(5,0.5,0.2)))
@@ -54,6 +57,7 @@ generate_population_structure <- function(populations,size) {
     else populations}
   colnames(populations) <- c("Case", "Control")
   rownames(populations) <- paste0("P", 1:nrow(populations))
+  
   populations}
 
 generate_SNPs_frequencies <- function(neutral_S, neutral_NS, causal_S, causal_NS, populations) {
@@ -192,7 +196,7 @@ C5 = list(`P1` = c(`case` = 200, `control` = 0), `P2` = c(`case` = 400, `control
 
 fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
 threshold = 3.63*10^-8
-sequence = 4
+sequence = 5
 ######Scenarios
 compute_multiple(populations = c(`min`=2, `max`=8),
                  size = 1200, 
