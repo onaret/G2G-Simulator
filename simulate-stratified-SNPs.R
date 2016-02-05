@@ -1,8 +1,8 @@
 rm(list = ls())
 cat("\014")  
 #library(rjson)
-setwd("/home/onaret/workspace")
-#setwd("/home/zod/Documents/Workspace/EPFL")
+#setwd("/home/onaret/workspace")
+setwd("/home/zod/Documents/Workspace/EPFL")
 ####Function
 compute_multiple <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS, times) {
   sapply(1:times, function(time){
@@ -205,14 +205,3 @@ compute_multiple(populations = c(`min`=2, `max`=8),
                  causal_NS = seq(1,2, by = 0.05),
                  causal_S = seq(1,2, by = 0.05),
                  times = 1000)
-
-####TODO
-##Compute power difference with and without PC to find causal SNPs in function of R
-##Compute lambda, (inflation)
-##Optimize GLM
-##Generate different stratified populations, compute power differences with and without PC,
-#See how well the PC correct the stratification, independently of its complexity
-##Gene burden test
-##Skat + globaltest
-#Simplify
-#Compute lambda which is an inflation coefficient
