@@ -1,8 +1,8 @@
 rm(list = ls())
 cat("\014")  
 #library(rjson)
-setwd("/home/onaret/workspace")
-#setwd("/home/zod/Documents/Workspace/EPFL")
+#setwd("/home/onaret/workspace")
+setwd("/home/zod/Documents/Workspace/EPFL")
 ####Function
 compute_multiple <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS, times) {
   sapply(1:times, function(time){
@@ -54,7 +54,7 @@ generate_population_structure <- function(populations,size) {
       case_nb = round(size*runif(1,0,1))
       c(case_nb,(strat_size-case_nb))}
     else if(is.null(populations) && is.null(size)) throw("You must set size or population arguments...")
-    else populations}
+    else t(as.data.frame(populations))}
   colnames(populations) <- c("Case", "Control")
   rownames(populations) <- paste0("P", 1:nrow(populations))
   
@@ -131,20 +131,20 @@ analyse <- function(SNPs, populations) {
     data.frame(pval, `signifficance` = factor(signiff, level=1:5, label=c("ns","*","**","***","+")))})}
 
 get_SNP_struct <- function(neutral_S, neutral_NS, causal_S, causal_NS) {
-  SNP_struct = matrix(ncol = 4, nrow = 3, dimnames = list(c("Quantity", "From", "To"),c("neutral_S","neutral_NS","causal_S","causal_NS")))
+  SNP_struct = matrix(ncol = 4, nrow = 3, dimnames = list(c("Quantity", "Start", "End"),c("neutral_S","neutral_NS","causal_S","causal_NS")))
   SNP_struct["Quantity",] <- c(neutral_S, neutral_NS, length(causal_S), length(causal_NS))
-  SNP_struct["From",] <- c(1, neutral_S + 1, neutral_S + neutral_NS + 1, neutral_S + neutral_NS + length(causal_S) + 1)
-  SNP_struct["To",] <- c(neutral_S, neutral_S + neutral_NS, neutral_S + neutral_NS + length(causal_S), neutral_S + neutral_NS + length(causal_S) + length(causal_NS))
+  SNP_struct["Start",] <- c(1, neutral_S + 1, neutral_S + neutral_NS + 1, neutral_S + neutral_NS + length(causal_S) + 1)
+  SNP_struct["End",] <- c(neutral_S, neutral_S + neutral_NS, neutral_S + neutral_NS + length(causal_S), neutral_S + neutral_NS + length(causal_S) + length(causal_NS))
   SNP_struct}
 
 summary_sim <- function(pvalues, SNP_struct) {
   sapply(pvalues, function(result) {
     extract_ns_row <- function(res_frag, cond) rownames(res_frag)[res_frag[,"signifficance"] != "ns"]
-    FP_neutral_S = extract_ns_row(result[SNP_struct["From","neutral_S"]:SNP_struct["To","neutral_S"],])
-    FP_neutral_NS = extract_ns_row(result[SNP_struct["From","neutral_NS"]:SNP_struct["To","neutral_NS"],])
-    FN_causal_S = extract_ns_row(result[SNP_struct["From","causal_S"]:SNP_struct["To","causal_S"],])
-    FN_causal_NS = extract_ns_row(result[SNP_struct["From","causal_NS"]:SNP_struct["To","causal_NS"],])
-    z = qnorm(result[SNP_struct["From","neutral_S"]:SNP_struct["To","neutral_NS"],]$pval/2)
+    FP_neutral_S = extract_ns_row(result[SNP_struct["Start","neutral_S"]:SNP_struct["End","neutral_S"],])
+    FP_neutral_NS = extract_ns_row(result[SNP_struct["Start","neutral_NS"]:SNP_struct["End","neutral_NS"],])
+    FN_causal_S = extract_ns_row(result[SNP_struct["Start","causal_S"]:SNP_struct["End","causal_S"],])
+    FN_causal_NS = extract_ns_row(result[SNP_struct["Start","causal_NS"]:SNP_struct["End","causal_NS"],])
+    z = qnorm(result[SNP_struct["Start","neutral_S"]:SNP_struct["End","neutral_NS"],]$pval/2)
     lambda = median(z^2)/0.456
     total = c(`tot_FP_neutral_S` = length(FP_neutral_S),`tot_FP_neutral_NS` = length(FP_neutral_NS),`tot_FN_causal_S` = length(FN_causal_S), `tot_FN_causal_NS` = length(FN_causal_NS), `lambda` = lambda)
     res = list(`FP_neutral_S` = FP_neutral_S, `FP_neutral_NS` = FP_neutral_NS, `FN_causal_S` = FN_causal_S, `FN_causal_S` = FN_causal_NS, `total`=total)
@@ -190,7 +190,7 @@ write <- function(res, time) {
 }
 
 ####Constants
-C1 = list(`P1` = list(`case` = 201, `control` = 401), `P2` = list(`case` = 399, `control`  = 199))
+C1 = list(`P1` = c(`case` = 200, `control` = 400), `P2` = c(`case` = 400, `control`  = 200))
 C2 = list(`P1` = c(`case` = 400, `control` = 200), `P2` = c(`case` = 200, `control` = 400))
 C3 = list(`P1` = c(`case` = 300, `control` = 0), `P2` = c(`case` = 300, `control` = 600))
 C4 = list(`P1` = c(`case` = 300, `control` = 200), `P2` = c(`case` = 200, `control` = 100), `P3` = c(`case` = 100, `control` = 300))
@@ -200,7 +200,9 @@ fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
 threshold = 3.63*10^-8
 sequence = 6
 ######Scenarios
-compute_multiple(populations = c(`min`=2, `max`=8),
+compute_multiple(populations = 
+                #c(`min`=2, `max`=8),
+                 C1,
                  size = 1200, 
                  neutral = 1200, 
                  neutral_S_rate = 0.05, 
