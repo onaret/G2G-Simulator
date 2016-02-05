@@ -4,18 +4,25 @@ cat("\014")
 #setwd("/home/onaret/workspace")
 setwd("/home/zod/Documents/Workspace/EPFL")
 ####Function
-compute_multiple <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS, times) {
-  sapply(1:times, function(time){
-    print(paste(Sys.time(),"Executing scenario", time, sep=": "))
-    res = scenario(populations, size, neutral, neutral_S_rate, causal_S, causal_NS)
-    write(res, time)
-  })
-  print(paste(Sys.time(),"Done", sep=": "))}
+run_multiple_scenarios <- function(populations, neutral, neutral_S_rate, causal_S, causal_NS, repetitions) {
+  #This condition is ugly
+  if(is.list(populations) && is.list(populations[[1]])) {
+    mapply(function(population, name, repetition){
+      print(paste(Sys.time(),": For population", name, "executing repetition", repetition))
+      res = scenario(population, neutral = neutral, neutral_S_rate, causal_S, causal_NS)
+      write(res, repetition, name)
+    },populations, names(populations), 1:repetitions)}
+  else {
+    sapply(1:repetitions, function(repetition){
+      print(paste(Sys.time(),": Executing repetition", repetition))
+      res = scenario(populations, neutral, neutral_S_rate, causal_S, causal_NS)
+      write(res, repetition)})}
+  print(paste(Sys.time(),"Done", sep=" : "))}
 
-scenario <- function(populations= NULL, size = NULL, neutral, neutral_S_rate, causal_S, causal_NS) {
+scenario <- function(populations, neutral, neutral_S_rate, causal_S, causal_NS) {
   neutral_S = get_stratified_SNPs_qtt(neutral_S_rate, neutral)
   neutral_NS = neutral - neutral_S
-  populations = generate_population_structure(populations, size)
+  populations = generate_population_structure(populations)
   SNP_freq = generate_SNPs_frequencies(neutral_S, neutral_NS, causal_S, causal_NS, populations)
   SNPs = generate_SNPs(SNP_freq, populations)
   pvalues = analyse(SNPs, populations)
@@ -36,10 +43,11 @@ get_stratified_SNPs_qtt <- function(stratification_rate, neutral_SNPs) {
   if(stratification_rate>100) stratification_rate = 1
   stratification_rate * neutral_SNPs}
 
-generate_population_structure <- function(populations,size) {
+generate_population_structure <- function(populations) {
   populations = {
     if(!is.list(populations))   {
       possible_pop_nb = populations["min"]:populations["max"]
+      size = populations["size"]
       populations = sample(c(possible_pop_nb), size=1, prob=rep(1/length(possible_pop_nb),length(possible_pop_nb)), replace = TRUE)
       populations = min(size, populations)
       populations = runif(populations,0,1)
@@ -49,19 +57,14 @@ generate_population_structure <- function(populations,size) {
         case_nb = round(strat_size*runif(1,0,1))
         #case_nb = round(strat_size*abs(rnorm(5,0.5,0.2)))
         c(case_nb,(strat_size-case_nb))}))}
-    else if(is.null(populations) && !is.null(size)) {
-      print("Population is not stratfied")
-      case_nb = round(size*runif(1,0,1))
-      c(case_nb,(strat_size-case_nb))}
     else if(is.null(populations) && is.null(size)) throw("You must set size or population arguments...")
     else t(as.data.frame(populations))}
   colnames(populations) <- c("Case", "Control")
   rownames(populations) <- paste0("P", 1:nrow(populations))
-  
   populations}
 
 generate_SNPs_frequencies <- function(neutral_S, neutral_NS, causal_S, causal_NS, populations) {
-  print(paste(Sys.time(),"Generating allele frequency", sep=": "))
+  print(paste(Sys.time(),"Generating allele frequency", sep=" : "))
   AF = {
     if(neutral_S > 0) AF = sapply(1:nrow(populations), function(population) get_alternate_allele(replicate(neutral_S, runif(1,0.01,0.99))))
     if(neutral_NS > 0) AF = rbind(AF, replicate(nrow(populations), get_alternate_allele(replicate(neutral_NS, runif(1,0.4,0.5)))))
@@ -85,7 +88,7 @@ get_alternate_allele <- function(reference_alleles) {
     rbeta(n = 1, shape1 = s1,shape2 = s2)})}
 
 generate_SNPs <- function(SNP_freq, populations) {
-  print(paste(Sys.time(),"Generating SNPs dsitribution", sep=": "))
+  print(paste(Sys.time(),"Generating SNPs dsitribution", sep=" : "))
   data = unlist(sapply(1:nrow(SNP_freq), function(snp_num){
     sapply(1:nrow(populations), function(population) {
       pCase = get_genotype_probability(SNP_freq[snp_num,population], SNP_freq$R[snp_num])
@@ -109,16 +112,16 @@ analyse <- function(SNPs, populations) {
   simulated_PC = rep(1:nrow(populations), populations[1:nrow(populations),"Control"] + populations[1:nrow(populations), "Case"])
   simulated_PC = chartr("123456789", "ABCDEFGHI", simulated_PC)
   y = unlist(c(sapply(1:nrow(populations), function(pop_nb) c( rep(1, populations[pop_nb,"Case"]), rep(0, populations[pop_nb,"Control"])))))
-  print(paste(Sys.time(),"Computing PCA", sep=": "))
+  print(paste(Sys.time(),"Computing PCA", sep=" : "))
   ca = prcomp(SNPs, scale. = FALSE) 
   
-  print(paste(Sys.time(),"Computing logistic regression with computed PC", sep=": "))
+  print(paste(Sys.time(),"Computing logistic regression with computed PC", sep=" : "))
   W_computed_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP]+ca$x[,1:5])))[,4][2])
   
-  print(paste(Sys.time(),"Computing logistic regression with simulated  PC", sep=": "))
+  print(paste(Sys.time(),"Computing logistic regression with simulated  PC", sep=" : "))
   W_simulated_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP]+simulated_PC)))[,4][2])
   
-  print(paste(Sys.time(),"Computing logistic regression without PC", sep=": "))
+  print(paste(Sys.time(),"Computing logistic regression without PC", sep=" : "))
   WO_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP])))[,4][2])
   
   apply(data.frame(WO_PC, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs)),2 , function(pval) {
@@ -151,7 +154,7 @@ summary_sim <- function(pvalues, SNP_struct) {
     Filter(length, res)})}
 
 trace_plot <- function(data, save = FALSE, file) {
-  ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=": ")), print(paste(Sys.time(),"Writting datas", sep=": "))) 
+  ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting datas", sep=" : "))) 
   
   if(save == TRUE) png(file, width = 960, height = 1440)
   par(mfrow=c(3,2))
@@ -175,18 +178,18 @@ qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
   lines(e,e,col="red")
   plot}
 
-write <- function(res, time) {
+write <- function(res, time, tag = NULL) {
   end = Sys.time()
   sequence <- sequence + 1
   summary_sym = data.frame(`WO_PC`= res$summary_sim$WO_PC$total, `W_simulated_PC` = res$summary_sim$W_simulated_PC$total,`W_computed_PC` = res$summary_sim$W_computed_PC$total)
   
-  trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/",sequence,"N",time,"-plots-(",end,").png"))
-  write.csv2(x = res$pvalues, file = paste0("gen-data/",sequence,"N",time,"-pvalues-(",end,").csv"))
-  write.csv2(x = res$SNP_freq, file = paste0("gen-data/",sequence,"N",time,"-SNP_freq-(",end,").csv"))
-  write.csv2(x = res$SNP_struct, file = paste0("gen-data/",sequence,"N",time,"-SNP_struct-(",end,").csv"))
-  write.csv2(x = res$populations, file = paste0("gen-data/",sequence,"N",time,"-populations-(",end,").csv"))
-  write.csv2(x = summary_sym, file = paste0("gen-data/",sequence,"N",time,"-psummary-sim-(",end,").csv"))
-  #cat(toJSON(res$summary_sim), file = paste0("gen-data/", end,"-N",time,"-summary_sim.json"))
+  trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/",sequence,"N",time,tag,"-plots-(",end,").png"))
+  write.csv2(x = res$pvalues, file = paste0("gen-data/",sequence,"N",time,tag,"-pvalues-(",end,").csv"))
+  write.csv2(x = res$SNP_freq, file = paste0("gen-data/",sequence,"N",time,tag,"-SNP_freq-(",end,").csv"))
+  write.csv2(x = res$SNP_struct, file = paste0("gen-data/",sequence,"N",time,tag,"-SNP_struct-(",end,").csv"))
+  write.csv2(x = res$populations, file = paste0("gen-data/",sequence,"N",time,tag,"-populations-(",end,").csv"))
+  write.csv2(x = summary_sym, file = paste0("gen-data/",sequence,"N",time,tag,"-psummary-sim-(",end,").csv"))
+  #cat(toJSON(res$summary_sim), file = paste0("gen-data/", end,"-N",time,tag,"-summary_sim.json"))
 }
 
 ####Constants
@@ -195,17 +198,23 @@ C2 = list(`P1` = c(`case` = 400, `control` = 200), `P2` = c(`case` = 200, `contr
 C3 = list(`P1` = c(`case` = 300, `control` = 0), `P2` = c(`case` = 300, `control` = 600))
 C4 = list(`P1` = c(`case` = 300, `control` = 200), `P2` = c(`case` = 200, `control` = 100), `P3` = c(`case` = 100, `control` = 300))
 C5 = list(`P1` = c(`case` = 200, `control` = 0), `P2` = c(`case` = 400, `control` = 200), `P3` = c(`case` = 0, `control` = 400))
+AllPop = list(`C1` = C1, `C2`= C2, `C3` = C3, `C4` = C4, `C5` = C5)
 
 fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
 threshold = 3.63*10^-8
 sequence = 6
 ######Scenarios
-compute_multiple(populations = 
-                #c(`min`=2, `max`=8),
-                 C1,
-                 size = 1200, 
+run_multiple_scenarios(populations = AllPop,
+                       neutral = 1200, 
+                       neutral_S_rate = 0.05, 
+                       causal_NS = seq(1,2, by = 0.05),
+                       causal_S = seq(1,2, by = 0.05),
+                       repetitions = 25)
+
+run_multiple_scenarios(populations = c(`min`=2, `max`=8, `size`=1200),
+                # C1,
                  neutral = 1200, 
                  neutral_S_rate = 0.05, 
                  causal_NS = seq(1,2, by = 0.05),
                  causal_S = seq(1,2, by = 0.05),
-                 times = 1)
+                 repetitions = 1)
