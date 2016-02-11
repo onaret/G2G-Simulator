@@ -1,8 +1,8 @@
 prefix = "gen-data/"
 
 load_datas <- function(pattern) {
-  lapply(list.files(prefix, pattern = pattern), function(file) {
-    read.csv2(file = paste0(prefix,file))})}
+  sapply(list.files(prefix, pattern = pattern), function(file) {
+    setNames(list(read.table(file = paste0(prefix,file))), file)})}
 
 load_populations <- function() load_datas("populations")
 load_SNP_struc <- function() load_datas("SNP_struc")

@@ -1,25 +1,26 @@
 ####Function
 run_multiple_scenarios <- function(populations, neutral, neutral_S_rate, causal_S, causal_NS, repetitions) {
   #This condition is ugly
+  cl <- makeCluster(CPU, outfile = "output.txt", type="FORK")
   if(is.list(populations) && is.list(populations[[1]])) {
-    mapply(function(population, name, repetition){
-      print(paste(Sys.time(),": For population", name, "executing repetition", repetition))
-      res = scenario(population, neutral = neutral, neutral_S_rate, causal_S, causal_NS)
-      write(res, repetition, name)
-    },populations, names(populations), 1:repetitions)}
+    parLapply(cl, 1:(repetitions*length(populations)), function(repetition, populations, names){
+      pop_index = repetition%%length(populations) + 1
+      print(paste(Sys.time(),": For population", names[pop_index], "executing repetition", trunc(repetition/length(populations))+1))
+      write(scenario(populations[pop_index], neutral = neutral, neutral_S_rate, causal_S, causal_NS), repetition, names[pop_index])
+    },populations, names(populations) )}
   else {
     sapply(1:repetitions, function(repetition){
       print(paste(Sys.time(),": Executing repetition", repetition))
-      res = scenario(populations, neutral, neutral_S_rate, causal_S, causal_NS)
-      write(res, repetition)})}
-  print(paste(Sys.time(),"Done", sep=" : "))}
+      res = scenario(populations, neutral, neutral_S_rate, causal_S, causal_NS)})}
+  print(paste(Sys.time(),"Done", sep=" : "))
+  stopCluster(cl)}
 
 scenario <- function(populations, neutral, neutral_S_rate, causal_S, causal_NS) {
   neutral_S = get_stratified_SNPs_qtt(neutral_S_rate, neutral)
   neutral_NS = neutral - neutral_S
   populations = generate_population_structure(populations)
-  SNP_freq = generate_SNPs_frequencies(neutral_S, neutral_NS, causal_S, causal_NS, populations)
-  SNPs = generate_SNPs(SNP_freq, populations)
+  SNPs_freq = generate_SNPs_frequencies(neutral_S, neutral_NS, causal_S, causal_NS, populations)
+  SNPs = generate_SNPs(SNPs_freq, populations)
   pvalues = analyse(SNPs, populations)
   SNP_struct = get_SNP_struct(neutral_S, neutral_NS, causal_S, causal_NS)
   summary_sim = summary_sim(pvalues, SNP_struct)
@@ -28,7 +29,7 @@ scenario <- function(populations, neutral, neutral_S_rate, causal_S, causal_NS) 
   populations = rbind(populations, matrix(c(sum(populations[,"Case"]), sum(populations[,"Control"])),ncol = 2, nrow = 1, dimnames = list("Total") ) )
   list(#`SNPs` = SNPs,
     `populations` = populations,
-    `SNP_freq` = SNP_freq,
+    `SNPs_freq` = SNPs_freq,
     `SNP_struct` = SNP_struct,
     `pvalues` = pvalues,
     `summary_sim` = summary_sim)}
@@ -82,20 +83,26 @@ get_alternate_allele <- function(reference_alleles) {
     s2 = (1-reference_allele)*(1-fcoeff)/fcoeff
     rbeta(n = 1, shape1 = s1,shape2 = s2)})}
 
-generate_SNPs <- function(SNP_freq, populations) {
+generate_SNPs <- function(SNPs_freq, populations) {
   print(paste(Sys.time(),"Generating SNPs dsitribution", sep=" : "))
-  data = unlist(sapply(1:nrow(SNP_freq), function(snp_num){
-    sapply(1:nrow(populations), function(population) {
-      pCase = get_genotype_probability(SNP_freq[snp_num,population], SNP_freq$R[snp_num])
-      pControl = get_genotype_probability(SNP_freq[snp_num,population], 0)
+  
+  data = apply(SNPs_freq, 1, function(SNP_freq){
+    unlist(lapply(1:nrow(populations), function(population) {
+      pCase = get_genotype_probability(SNP_freq[population], SNP_freq["R"])
+      pControl = get_genotype_probability(SNP_freq[population], 0)
       cases=sample(c(0,1,2), size = populations[population,"Case"], prob = pCase, replace = TRUE)
       controls=sample(c(0,1,2), size = populations[population,"Control"], prob = pControl, replace = TRUE)
-      c(cases, controls)})}))
+      c(cases, controls)}))})
   
-  sample_names = unlist(sapply(1:nrow(populations), function(population) {
-    if(populations[population,"Case"] > 0) sample_names = c(paste('Case', 'P', population, 'sample', 1:populations[population,"Case"],sep='_'))
-    if(populations[population,"Control"] > 0) c(sample_names, paste('Control', 'P', population, 'sample', 1:populations[population,"Control"],sep='_'))}))
-  matrix(data, ncol = nrow(SNP_freq), nrow = length(sample_names), dimnames = list(sample_names, rownames(SNP_freq)))}
+  sample_names= c()
+  sample_names = unlist(lapply(1:nrow(populations), function(population) {
+    if(populations[population,"Case"] > 0) sample_names = c(sample_names, paste('Case', 'P', population, 'sample', 1:populations[population,"Case"],sep='_'))
+    if(populations[population,"Control"] > 0) sample_names = c(sample_names, paste('Control', 'P', population, 'sample', 1:populations[population,"Control"],sep='_'))
+    sample_names}))
+  
+  rownames(data) <- sample_names
+  print(paste0(Sys.time()," : SNPs object size is ", as.integer(object_size(data))/1000000, " MB"))
+  data}
 
 get_genotype_probability <- function(alternate_allele, R) {
   if(R!=0) {
@@ -106,20 +113,19 @@ get_genotype_probability <- function(alternate_allele, R) {
 analyse <- function(SNPs, populations) {
   simulated_PC = rep(1:nrow(populations), populations[1:nrow(populations),"Control"] + populations[1:nrow(populations), "Case"])
   simulated_PC = chartr("123456789", "ABCDEFGHI", simulated_PC)
-  y = unlist(c(sapply(1:nrow(populations), function(pop_nb) c( rep(1, populations[pop_nb,"Case"]), rep(0, populations[pop_nb,"Control"])))))
+  y = unlist(lapply(1:nrow(populations), function(pop_nb) c( rep(1, populations[pop_nb,"Case"]), rep(0, populations[pop_nb,"Control"]))))
   print(paste(Sys.time(),"Computing PCA", sep=" : "))
   ca = prcomp(SNPs, scale. = FALSE) 
-  
   print(paste(Sys.time(),"Computing logistic regression with computed PC", sep=" : "))
-  W_computed_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP]+ca$x[,1:5])))[,4][2])
-  
+  W_computed_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP+ca$x[,1:5])))[,4][2])
   print(paste(Sys.time(),"Computing logistic regression with simulated  PC", sep=" : "))
-  W_simulated_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP]+simulated_PC)))[,4][2])
-  
+  W_simulated_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP+simulated_PC)))[,4][2])
   print(paste(Sys.time(),"Computing logistic regression without PC", sep=" : "))
-  WO_PC = sapply(1:ncol(SNPs), function(SNP) coef(summary(glm(y~SNPs[,SNP])))[,4][2])
+  WO_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP)))[,4][2])
+  parse_pvalues(data.frame(WO_PC, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs)), threshold)}
   
-  apply(data.frame(WO_PC, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs)),2 , function(pval) {
+parse_pvalues <- function(pvalues, threshold) {
+  apply(pvalues, 2 , function(pval) {
     signiff = c()
     signiff[threshold < pval] <- 1
     signiff[threshold*0.1 < pval & pval <= threshold] <- 2
@@ -127,6 +133,9 @@ analyse <- function(SNPs, populations) {
     signiff[threshold*0.001 < pval & pval <= threshold*0.01] <- 4
     signiff[pval <= threshold*0.001] <- 5
     data.frame(pval, `signifficance` = factor(signiff, level=1:5, label=c("ns","*","**","***","+")))})}
+
+regen_signiff <- function(pvalues, threshold) {
+  parse_pvalues(data.frame(`WO_PC` = pvalues[,"WO_PC.pval"], `W_simulated_PC` = pvalues[,"W_simulated_PC.pval"], `W_computed_PC` = pvalues[,"W_computed_PC.pval"], row.names = rownames(pvalues)), threshold)}
 
 get_SNP_struct <- function(neutral_S, neutral_NS, causal_S, causal_NS) {
   SNP_struct = matrix(ncol = 4, nrow = 3, dimnames = list(c("Quantity", "Start", "End"),c("neutral_S","neutral_NS","causal_S","causal_NS")))
@@ -175,14 +184,13 @@ qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
 
 write <- function(res, time, tag = NULL) {
   end = Sys.time()
-  sequence <- sequence + 1
-  summary_sym = data.frame(`WO_PC`= res$summary_sim$WO_PC$total, `W_simulated_PC` = res$summary_sim$W_simulated_PC$total,`W_computed_PC` = res$summary_sim$W_computed_PC$total)
-  
-  trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/",sequence,"N",time,tag,"-plots-(",end,").png"))
-  write.csv2(x = res$pvalues, file = paste0("gen-data/",sequence,"N",time,tag,"-pvalues-(",end,").csv"))
-  write.csv2(x = res$SNP_freq, file = paste0("gen-data/",sequence,"N",time,tag,"-SNP_freq-(",end,").csv"))
-  write.csv2(x = res$SNP_struct, file = paste0("gen-data/",sequence,"N",time,tag,"-SNP_struct-(",end,").csv"))
-  write.csv2(x = res$populations, file = paste0("gen-data/",sequence,"N",time,tag,"-populations-(",end,").csv"))
-  write.csv2(x = summary_sym, file = paste0("gen-data/",sequence,"N",time,tag,"-summary_sym-(",end,").csv"))
-  #cat(toJSON(res$summary_sim), file = paste0("gen-data/", end,"-N",time,tag,"-summary_sim.json"))
+  print(paste0(end," : Result object size is ",  as.integer(object_size(res))/1000000, " MB"))
+  sequence <- sequence + 1  
+  trace_plot(res$pvalues, save = TRUE, file = paste0("gen-data/", sequence, "N", time, tag, "-plots-(", end, ").png"))
+  write.table(x = res$pvalues, file = paste0("gen-data/", sequence, "N", time, tag, "-pvalues-(", end, ").csv"))
+  write.table(x = res$SNPs_freq, file = paste0("gen-data/", sequence, "N", time, tag, "-SNPs_freq-(", end, ").csv"))
+  write.table(x = res$SNP_struct, file = paste0("gen-data/", sequence, "N", time, tag, "-SNP_struct-(",end, ").csv"))
+  write.table(x = res$populations, file = paste0("gen-data/", sequence, "N", time, tag, "-populations-(", end, ").csv"))
+  write.table(x = data.frame(`WO_PC`= res$summary_sim$WO_PC$total, `W_simulated_PC` = res$summary_sim$W_simulated_PC$total,`W_computed_PC` = res$summary_sim$W_computed_PC$total), file = paste0("gen-data/", sequence, "N", time, tag, "-summary-(", end, ").csv"))
+  cat(toJSON(res$summary_sim), file = paste0("gen-data/", sequence, "-N", time, tag, "-summary-(", end, ").json"))
 }
