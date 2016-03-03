@@ -45,25 +45,25 @@ ucpart_causal_s_and_y = unique(part_causal_s_and_y)
 
 
 
+repnb = 1
+s1 = data.frame(`S_Stratified` = rep("yes", repnb),`Y_Biased` = "yes")
+s2 = data.frame(`S_Stratified` = rep("yes", repnb),  `Viral_Association` = "AB", `R` = c(0.1))
+s3 = data.frame(`S_Stratified` = rep("yes", repnb), `Viral_Association` = "A", `R` = c(0.1))
+s4 = data.frame(`S_Stratified` = rep("yes", repnb),`Y_Biased` = "yes",  `Viral_Association` = "A", `R` = c(0.1))
 
-s1 = data.frame(`S_Stratified` = rep(TRUE, 100),`Y_Biased` = TRUE)
-s2 = data.frame(`S_Stratified` = rep(TRUE, 100),  `Viral_Association` = "AB", `R` = c(0.1))
-s3 = data.frame(`S_Stratified` = rep(TRUE, 1), `Viral_Association` = "A", `R` = c(0.1))
-s4 = data.frame(`S_Stratified` = rep(TRUE, 1),`Y_Biased` = TRUE,  `Viral_Association` = "A", `R` = c(0.1))
-
-c1 = data.frame(`S_Half_Biased` = rep(TRUE, 100),`Y_Half_Stratified` = TRUE)
-sc1 = data.frame(`S_Stratified` = rep(TRUE, 100), `Y_Stratified` = TRUE,`Y_Biased` = TRUE)
-sc1b = data.frame(`S_Stratified` = rep(TRUE, 100), `Y_Stratified` = TRUE,`Y_Biased` = TRUE,  `Viral_Association` = "A", `R` = c(0.1))
-
-
+c1 = data.frame(`S_Biased` = rep("half", repnb),`Y_Stratified` = "half")
+sc1 = data.frame(`S_Stratified` = rep("yes", repnb), `Y_Stratified` = "yes",`Y_Biased` = "yes")
+sc1b = data.frame(`S_Stratified` = rep("yes", repnb), `Y_Stratified` = "yes",`Y_Biased` = "yes",  `Viral_Association` = "A", `R` = c(0.1))
 
 
 
-SNPs = rbind.fill(s1,s2,s3,s4,sc1,sc1b)
+
+
+SNPs = rbind.fill(s1,s2,s3,s4,c1,sc1,sc1b)
 
 scenario_viral(sample_size, vir_pop, pop_nb, SNPs = c1, fcoeff_pop = 0.3, fcoeff_vir = 0.1, vir_bias = 0.01, pop_bias = 0.03, beta = beta)
 
-scenario_viral(sample_size, vir_pop, pop_nb, SNPs = sc1b, fcoeff_pop = 0.3, fcoeff_vir = 0.1, vir_bias = 0.01, pop_bias = 0.03, beta = beta)
+scenario_viral(sample_size, vir_pop, pop_nb, SNPs = SNPs, fcoeff_pop = 0.3, fcoeff_vir = 0.1, vir_bias = 0.01, pop_bias = 0.03, beta = beta)
 
 SC1 = c(`fcoeff_pop`=0.1, `fp_vir` = 0.05)
 
@@ -107,9 +107,9 @@ parLapply(cl, seq(200, 5000, length.out = 10), function(sample_size) {
   res = scenario_viral(sample_size, vir_pop, pop_nb, causal_S =  causal_S, causal_NS = causal_NS , viral_aa = viral_aa,beta =  beta, fcoeff_pop =  fcoeff_pop, vir_bias = vir_bias)
 })
 
-size = seq(200, 5000, length.out = 10)
-fcoeff_pop = seq(0.01, 0.3, length.out = 10)
-beta = seq(0.1, 2, length.out = 10)
+#size = seq(200, 5000, length.out = 10)
+#fcoeff_pop = seq(0.01, 0.3, length.out = 10)
+#beta = seq(0.1, 2, length.out = 10)
 
 res = c()
 for(sample_size in seq(200, 5000, length.out = 4)) {
