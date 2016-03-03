@@ -157,15 +157,15 @@ summary_sim <- function(pvalues, SNP_params) {
 trace_plot <- function(pvals, scenarios, save = TRUE, file = paste0(Sys.time(),".png")) {
   ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting plots", sep=" : "))) 
   if(save == TRUE) png(file, width = 960, height = 1440)
-  par(mfrow=c(length(pvals),3))
+  par(mfrow=c(length(pvals),2))
   mapply(function(condition, name) {
-    qq(condition$pval,name)
+    #qq(condition$pval,name)
     plot(-log10(condition$pval), main=name, ylab='-Log(p)', xlab='SNPs', ylim=c(0,20))
-    lapply(scenarios[,"size"], function(size) abline(v = size, untf = FALSE, col = "green"))
+    lapply(1:nrow(scenarios), function(num) abline(v = sum(scenarios[1:num, "size"]), untf = FALSE, col = "green"))
     abline(h = -log10(threshold), untf = FALSE, col = "red")
     plot(-log10(pvals$WO_PC$pval) - -log10(condition$pval), main=name, ylab='power gain', xlab='SNPs', ylim=c(-20,20))
     abline(h = 0, untf = FALSE, col = "red")
-    lapply(scenarios[,"size"], function(size) abline(v = size, untf = FALSE, col = "green"))
+    lapply(1:nrow(scenarios), function(num) abline(v = sum(scenarios[1:num, "size"]), untf = FALSE, col = "green"))
     }, pvals, names(pvals))
   if(save == TRUE) dev.off()}
 
@@ -182,7 +182,9 @@ write <- function(res, time=1, tag = NULL) {
   trace_plot(res$pvalues,res$scenarios, save = TRUE, file = paste0("gen-data/", sequence, "N", time, tag, "-plots-(", end, ").png"))
   #write.table(x = res$pvalues, file = paste0("gen-data/", sequence, "N", time, tag, "-pvalues-(", end, ").csv"))
   #write.table(x = res$SNP_params, file = paste0("gen-data/", sequence, "N", time, tag, "-SNP_params-(", end, ").csv"))
+  res$SNP_params[,"Associated_Populations"] = vapply(res$SNP_params[,"Associated_Populations"], paste, collapse = ", ", character(1L))
   write.table(x = cbind(res$SNP_params,res$pvalues), file = paste0("gen-data/", sequence, "N", time, tag, "-SNP_params-pvals-(", end, ").csv"))
   write.table(x = res$study_design, file = paste0("gen-data/", sequence, "N", time, tag, "-study_design-(", end, ").csv"))
   write.table(x = res$params, file = paste0("gen-data/", sequence, "N", time, tag, "-params-(", end, ").csv"))
+  write.table(x = res$scenario, file = paste0("gen-data/", sequence, "N", time, tag, "-scenario-(", end, ").csv"))
   cat(toJSON(res$summary_sim), file = paste0("gen-data/", sequence, "-N", time, tag, "-summary-(", end, ").json"))}

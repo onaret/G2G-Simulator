@@ -1,9 +1,8 @@
-scenario_viral <- function(sample_size, strains, nb_pop, SNPs, viral_aa=1, fcoeff_pop, fcoeff_vir, vir_bias, pop_bias, beta) {
-  params = parse_params(sample_size, strains, nb_pop, viral_aa, fcoeff_pop,fcoeff_vir, vir_bias, pop_bias, beta)
-  scenarios = unique(SNPs)
+scenario_viral <- function(sample_size, strains, nb_pop, SNPs, fcoeff_pop, fcoeff_vir, vir_bias, pop_bias, beta) {
+  params = parse_params(sample_size, strains, nb_pop, fcoeff_pop,fcoeff_vir, vir_bias, pop_bias, beta)
   SNP_params = parse_SNP_parameters(SNPs, params)
-  scenarios["size"] = group_size(group_by(SNP_params,S_Stratified,S_Biased,Y_Stratified,Y_Biased,Viral_Association,R))
-  different_scenarios = unique(select(SNP_params, -starts_with("S_P"), -starts_with("Y_P")))
+  scenarios = unique(select(SNP_params, S_Stratified,S_Biased,Y_Stratified,Y_Biased, Causal, Associated_Strains, Associated_Populations))
+  scenarios["size"] = group_size(group_by(SNPs,S_Stratified,S_Biased,Y_Stratified,Y_Biased,Associated_Strains, Associated_Populations))
   study_design = get_study_design(params)
   SNPs = generate_SNPs_with_viral(SNP_params, study_design, params)
   Y = get_viral_output(study_design, SNPs, SNP_params, params)
@@ -16,14 +15,13 @@ scenario_viral <- function(sample_size, strains, nb_pop, SNPs, viral_aa=1, fcoef
     `summary_sim` = summary_sim,
     `params` = params,
     `scenarios` = scenarios)
-  write(res, tag = paste("size", sample_size,"fc_pop", round(fcoeff_pop, digits = 3), "beta", round(beta, digits = 3),sep = "-"))
-  res}
+  write(res, tag = paste("fcoeff_pop", round(fcoeff_pop, digits=2),"pop_bias", round(pop_bias, digits=2),"fcoeff_vir", round(fcoeff_vir, digits=2),"vir_bias", round(vir_bias, digits=2),"beta", round(beta, digits=2), "sample_size",round(sample_size, digits=2), sep="-"))}
 
-parse_params <- function(sample_size, strains, nb_pop, viral_aa=1, fcoeff_pop,fcoeff_vir, vir_bias, pop_bias=NULL, beta) {
+parse_params <- function(sample_size, strains, nb_pop, fcoeff_pop,fcoeff_vir, vir_bias, pop_bias=NULL, beta) {
   pops = paste0("P", 1:nb_pop)
   nb_strains = length(strains)
-  list(`fcoeff_pop` = fcoeff_pop, `fcoeff_vir` = fcoeff_vir, `vir_bias` = vir_bias, `pop_bias` = pop_bias, 
-      `viral_aa` = viral_aa, `nb_strains` = nb_strains, `strains` = strains, `nb_pop` = nb_pop, `pops` = pops, `sample_size` = sample_size, `beta` = beta)}
+  list(`fcoeff_pop` = fcoeff_pop, `fcoeff_vir` = fcoeff_vir, `vir_bias` = vir_bias, `pop_bias` = pop_bias, `nb_strains` = nb_strains, 
+       `strains` = strains, `nb_pop` = nb_pop, `pops` = pops, `sample_size` = sample_size, `beta` = beta)}
 
 get_study_design <- function(params) {
   ####Case is not usefull in vir study
@@ -45,24 +43,27 @@ get_samples_name_from_SD <- function(study_design) {
 parse_SNP_parameters <- function(SNPs, params) {
   ####TODO : remove `Viral Association` when CC study
   print(paste(Sys.time(),"Generating SND ad Y frequencies", sep=" : "))
-  lvl = c("yes","no","half")
-  prototype = data.frame(`S_Stratified` = factor(levels = lvl), `S_Biased` = factor(levels = lvl), `Y_Stratified` = factor(levels =lvl), `Y_Biased` = factor(levels = lvl), `Viral_Association` = character(), `R` = numeric())
-  SNPs = rbind.fill(SNPs,prototype)
-  SNPs[,"Y_Stratified"][SNPs[,"Y_Biased"] == "half"] = "yes"
+  #lvl = c("full","no","half")
+  #prototype = data.frame(`S_Stratified` = factor(levels = lvl), `S_Biased` = factor(levels = lvl), `Y_Stratified` = factor(levels =lvl), `Y_Biased` = factor(levels = lvl), `Associated_Strains` = character(), `R` = numeric())
+  #SNPs = rbind_all(SNPs,prototype)
+  SNPs[,"Y_Stratified"][SNPs[,"Y_Biased"] == "half"] = "full"
   SNPs[,"Y_Stratified"][is.na(SNPs[,"Y_Stratified"])] = "no"
   
-  SNPs[,"Y_Biased"][SNPs[,"Y_Stratified"] == "half"] = "yes"
+  SNPs[,"Y_Biased"][SNPs[,"Y_Stratified"] == "half"] = "full"
   SNPs[,"Y_Biased"][is.na(SNPs[,"Y_Biased"])] = "no"
   
-  SNPs[,"S_Stratified"][SNPs[,"S_Biased"] == "half"] = "yes"
+  SNPs[,"S_Stratified"][SNPs[,"S_Biased"] == "half"] = "full"
   SNPs[,"S_Stratified"][is.na(SNPs[,"S_Stratified"])] = "no"
   
-  SNPs[,"S_Biased"][SNPs[,"S_Stratified"] == "half"] = "yes"
+  SNPs[,"S_Biased"][SNPs[,"S_Stratified"] == "half"] = "full"
   SNPs[,"S_Biased"][is.na(SNPs[,"S_Biased"])] = "no"
+
+  SNPs[,"Associated_Populations"][SNPs[,"Associated_Populations"] == "full"] = list(params$pops)
+  SNPs[,"Associated_Populations"][SNPs[,"Associated_Populations"] == "half"] = "P1"
   
-  SNPs["Causal"]=!is.na(SNPs[,"R"])
-  y_freq = t(data.frame(apply(select(SNPs, -R, -Viral_Association, -Causal),1, function(snp) get_AFs(params, snp['Y_Stratified'], params$fcoeff_vir, snp['Y_Biased'], params$vir_bias))))
-  s_freq = t(data.frame(apply(select(SNPs, -R, -Viral_Association, -Causal),1, function(snp) get_AFs(params, snp['S_Stratified'], params$fcoeff_pop, snp['S_Biased'], params$pop_bias))))
+  SNPs["Causal"]=!is.na(SNPs[,"Associated_Strains"])
+  s_freq = t(data.frame(apply(select(SNPs, -Associated_Strains,-Associated_Populations, -Causal),1, function(snp) get_AFs(params, snp['S_Stratified'], params$fcoeff_pop, snp['S_Biased'], params$pop_bias))))
+  y_freq = t(data.frame(apply(select(SNPs, -Associated_Strains,-Associated_Populations, -Causal),1, function(snp) get_AFs(params, snp['Y_Stratified'], params$fcoeff_vir, snp['Y_Biased'], params$vir_bias))))
   colnames(s_freq) <- paste0("S_", "P", as.vector(t(replicate(params$nb_strains, 1:params$nb_pop))),".", params$strains)
   colnames(y_freq) <- paste0("Y_", "P",1:params$nb_pop,".", as.vector(t(replicate(params$nb_pop, params$strains))))
   SNPs = cbind(s_freq, y_freq, SNPs)
@@ -82,9 +83,9 @@ get_AFs <- function(params, stratified, fcoeff=0, biased, bias =0) {
       t = sort(replicate(3,get_AF(runif(1, 0.1, 0.5), fcoeff)), decreasing = TRUE)
       c(head(t, n=1), tail(t, n=1), tail(head(t, n=2), n=1), tail(t, n=1)) }
     else if(stratified == "no" && biased == "no") rep(get_AF(runif(1, 0.1, 0.5), fcoeff),params$nb_pop * params$nb_strains)
-    else if(stratified == "no" && biased == "yes") rep(sort(replicate(params$nb_strains, get_AF(runif(1, 0.1, 0.5), bias)), decreasing = TRUE), params$nb_pop)
-    else if(stratified == "yes" && biased == "no") sort(as.vector(replicate(params$nb_pop, rep(get_AF(runif(1, 0.1, 0.5), fcoeff), params$nb_strains))), decreasing = TRUE) 
-    else if(stratified == "yes" && biased == "yes") {
+    else if(stratified == "no" && biased == "full") rep(sort(replicate(params$nb_strains, get_AF(runif(1, 0.1, 0.5), bias)), decreasing = TRUE), params$nb_pop)
+    else if(stratified == "full" && biased == "no") sort(as.vector(replicate(params$nb_pop, rep(get_AF(runif(1, 0.1, 0.5), fcoeff), params$nb_strains))), decreasing = TRUE) 
+    else if(stratified == "full" && biased == "full") {
       stratified_afs = sort(as.vector(replicate(params$nb_pop, rep(get_AF(runif(1, 0.1, 0.5), fcoeff), params$nb_strains))), decreasing = TRUE)
       st = unlist(lapply(stratified_afs, function(stratified_af) get_AF(stratified_af,  bias)))
       c(sort(st[1:2], decreasing = TRUE),  sort(st[3:4], decreasing = TRUE))} } }
@@ -102,25 +103,23 @@ generate_SNPs_with_viral <- function(SNP_params, study_design, params) {
 
 get_viral_output <- function(study_design, SNPs, SNP_params, params) {
   print(paste(Sys.time(),"Generating Viral output", sep=" : "))
-  Y = sapply(1:nrow(SNP_params), function(snp_num) {
-    Y = unlist(lapply(params$pops, function(population) {
+  sapply(1:nrow(SNP_params), function(snp_num) {
+    unlist(lapply(params$pops, function(population) {
       unlist(lapply(params$strains, function(strain) {
-        AF = SNP_params[snp_num,paste0("Y_", population,".",strain)]
-        sample(0:1, size = nrow(filter(study_design, Population == population, Strain == strain)), prob = c(1 - AF,AF), replace = TRUE) })) }))
-    if(SNP_params[snp_num,"Causal"]) {
-      filter = study_design[,"Strain"] %in% unlist(strsplit(x = as.character(SNP_params[snp_num,"Viral_Association"]), split = ""))
-      z = numeric(sum(filter))
-      z = as.matrix(SNPs[,snp_num])[which(filter)]*params$beta
-      pr = 1/(1+exp(-z))
-      Y[filter] = unlist(lapply(pr, function(pri) sample(0:1, 1, prob = c(1-pri, pri))))}
-    Y})
-  Y}
+        filter = study_design[,"Population"] == population & study_design[,"Strain"] == strain
+        if(SNP_params[snp_num,"Causal"] && population %in% unlist(SNP_params[snp_num,"Associated_Populations"]) && strain %in% unlist(strsplit(x = as.character(SNP_params[snp_num,"Associated_Strains"]), split = ""))) {
+          z = as.matrix(SNPs[,snp_num])[which(filter)]*params$beta
+          pr = 1/(1+exp(-z))
+          unlist(lapply(pr, function(pri) sample(0:1, 1, prob = c(1-pri, pri))))}
+        else {
+          AF = SNP_params[snp_num,paste0("Y_", population,".",strain)]
+          sample(0:1, size = sum(filter), prob = c(1 - AF,AF), replace = TRUE) } })) })) })}
 
 analyse_viral <- function(SNPs, Y, study_design) {
-  print(paste(Sys.time(),"Computing PC from SNPs for population stratification", sep=" : "))
+  #print(paste(Sys.time(),"Computing PC from SNPs for population stratification", sep=" : "))
   #SNPs_PC = prcomp(SNPs, .scale = FALSE)
   #nb_PCs_strains = ifelse(ncol(SNPs_PC$x)<5, ncol(SNPs_PC$x), 5)
-  print(paste(Sys.time(),"Computing PC from Y for viral stratification", sep=" : "))
+  #print(paste(Sys.time(),"Computing PC from Y for viral stratification", sep=" : "))
   #strain_PC = prcomp(Y, .scale = FALSE)
   #nb_PCs_strains = ifelse(ncol(strain_PC$x)<5, ncol(strain_PC$x), 5)
   print(paste(Sys.time(),"Computing GLM", sep=" : "))
