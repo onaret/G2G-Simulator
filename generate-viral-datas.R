@@ -62,8 +62,8 @@ parse_SNP_parameters <- function(SNPs, params) {
   SNPs[,"Associated_Populations"][SNPs[,"Associated_Populations"] == "half"] = "P1"
   
   SNPs["Causal"]=!is.na(SNPs[,"Associated_Strains"])
-  s_freq = t(data.frame(apply(select(SNPs, -Associated_Strains,-Associated_Populations, -Causal),1, function(snp) get_AFs(params, snp['S_Stratified'], params$fcoeff_pop, snp['S_Biased'], params$pop_bias))))
   y_freq = t(data.frame(apply(select(SNPs, -Associated_Strains,-Associated_Populations, -Causal),1, function(snp) get_AFs(params, snp['Y_Stratified'], params$fcoeff_vir, snp['Y_Biased'], params$vir_bias))))
+  s_freq = t(data.frame(apply(select(SNPs, -Associated_Strains,-Associated_Populations, -Causal),1, function(snp) get_AFs(params, snp['S_Stratified'], params$fcoeff_pop, snp['S_Biased'], params$pop_bias))))
   colnames(s_freq) <- paste0("S_", "P", as.vector(t(replicate(params$nb_strains, 1:params$nb_pop))),".", params$strains)
   colnames(y_freq) <- paste0("Y_", "P",1:params$nb_pop,".", as.vector(t(replicate(params$nb_pop, params$strains))))
   SNPs = cbind(s_freq, y_freq, SNPs)
@@ -76,17 +76,18 @@ get_AFs <- function(params, stratified, fcoeff=0, biased, bias =0) {
     s2 = (1-allele)*(1-fcoeff)/fcoeff
     rbeta(n = 1, shape1 = s1,shape2 = s2)}
   AFs = {
+    RF = runif(1, 0.1, 0.5) 
     if(biased == "half") {
-      t = sort(replicate(3,get_AF(runif(1, 0.1, 0.5), fcoeff)), decreasing = TRUE)
+      t = sort(replicate(3,get_AF(RF, fcoeff)), decreasing = TRUE)
       c(t,tail(t, n=1)) }
     else if(stratified == "half") {
-      t = sort(replicate(3,get_AF(runif(1, 0.1, 0.5), fcoeff)), decreasing = TRUE)
+      t = sort(replicate(3,get_AF(RF, fcoeff)), decreasing = TRUE)
       c(head(t, n=1), tail(t, n=1), tail(head(t, n=2), n=1), tail(t, n=1)) }
-    else if(stratified == "no" && biased == "no") rep(get_AF(runif(1, 0.1, 0.5), fcoeff),params$nb_pop * params$nb_strains)
-    else if(stratified == "no" && biased == "full") rep(sort(replicate(params$nb_strains, get_AF(runif(1, 0.1, 0.5), bias)), decreasing = TRUE), params$nb_pop)
-    else if(stratified == "full" && biased == "no") sort(as.vector(replicate(params$nb_pop, rep(get_AF(runif(1, 0.1, 0.5), fcoeff), params$nb_strains))), decreasing = TRUE) 
+    else if(stratified == "no" && biased == "no") rep(get_AF(RF, fcoeff),params$nb_pop * params$nb_strains)
+    else if(stratified == "no" && biased == "full") rep(sort(replicate(params$nb_strains, get_AF(RF, bias)), decreasing = TRUE), params$nb_pop)
+    else if(stratified == "full" && biased == "no") sort(as.vector(replicate(params$nb_pop, rep(get_AF(RF, fcoeff), params$nb_strains))), decreasing = TRUE) 
     else if(stratified == "full" && biased == "full") {
-      stratified_afs = sort(as.vector(replicate(params$nb_pop, rep(get_AF(runif(1, 0.1, 0.5), fcoeff), params$nb_strains))), decreasing = TRUE)
+      stratified_afs = sort(as.vector(replicate(params$nb_pop, rep(get_AF(RF, fcoeff), params$nb_strains))), decreasing = TRUE)
       st = unlist(lapply(stratified_afs, function(stratified_af) get_AF(stratified_af,  bias)))
       c(sort(st[1:2], decreasing = TRUE),  sort(st[3:4], decreasing = TRUE))} } }
 

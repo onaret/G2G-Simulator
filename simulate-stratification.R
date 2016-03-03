@@ -52,17 +52,29 @@ sc1b = get_SNP_input(S_Stratified = "full", Y_Stratified = "full",Y_Biased = "fu
 
 
 SNPs = rbind_all(list(prototype,fs1, fs2_ss1, ss2, fs3_ss3, fs4, ss4, c1, sc1, sc1b))
-
 scenario_viral(sample_size, vir_pop, pop_nb, SNPs, fcoeff_pop = 0.3, fcoeff_vir = 0.1, vir_bias = 0.01, pop_bias = 0.03, beta = beta)
 
-c1 = rbind_all(list(prototype,c1))
+
+########C1
+c1 =  get_SNP_input(S_Biased = "half",Y_Stratified = "half", size = repnb)
 scenario_viral(sample_size, vir_pop, pop_nb, c1, fcoeff_pop = 0.2, fcoeff_vir = 0.2, vir_bias = 0.03, pop_bias = 0.03, beta = beta)
 
-c1_with_fun = get_SNP_input(S_Biased = "half",Y_Stratified = "half", size = repnb) 
-c1_without_human_bias = get_SNP_input(S_Biased = "full",Y_Stratified = "half", size = repnb)
-
+c1_without_human_bias = get_SNP_input(S_Stratified = "full",Y_Stratified = "half", size = repnb)
 scenario_viral(sample_size, vir_pop, pop_nb, c1_without_human_bias, fcoeff_pop = 0.2, fcoeff_vir = 0.2, vir_bias = 0.03, pop_bias = 0.03, beta = beta)
 
+c1_without_human_bias = get_SNP_input(S_Stratified = "full",Y_Stratified = "half", size = repnb)
+scenario_viral(sample_size, vir_pop, pop_nb, c1_without_human_bias, fcoeff_pop = 0.2, fcoeff_vir = 0.2, vir_bias = 0.03, pop_bias = 0.03, beta = beta)
+
+c1_with_full_bias_full_strat = get_SNP_input(S_Stratified = "full", S_Biased = "full", Y_Stratified = "full", Y_Biased = "full", size = repnb)
+scenario_viral(sample_size, vir_pop, pop_nb, c1_with_full_bias_full_strat, fcoeff_pop = 0.2, fcoeff_vir = 0.2, vir_bias = 0.03, pop_bias = 0.03, beta = beta)
+
+
+########FS1
+fs1 = get_SNP_input(S_Stratified = "full",Y_Biased = "full", size = repnb)
+scenario_viral(sample_size, vir_pop, pop_nb, fs1, fcoeff_pop = 0.2, fcoeff_vir = 0.01, vir_bias = 0.003, pop_bias = 0.03, beta = beta)
+
+fs1_full_strat = get_SNP_input(S_Stratified = "full",Y_Stratified = "full", size = repnb)
+scenario_viral(sample_size, vir_pop, pop_nb, fs1_full_strat, fcoeff_pop = 0.2, fcoeff_vir = 0.001, vir_bias = 0.001, pop_bias = 0.03, beta = beta)
 
 cl = makeCluster(10, type = "FORK")
 #parLapply(cl, seq(200, 5000, length.out = 10), function(sample_size) {
