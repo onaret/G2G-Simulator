@@ -150,58 +150,6 @@ generate_SNPs_with_viral <- function(SNP_params, study_design, params) {
         prob = unname(unlist(select(p, contains(paste0("S_", population,"." ,strain) ))))
         sample(c(0,1,2), size = nrow(filter(study_design, Population == population, Strain == strain)), prob = prob, replace = TRUE) })) })) })}
 
-get_viral_output_sp <- function(study_design, SNPs, SNP_params, params) {
-  if(trace == TRUE) print(paste(Sys.time(),"Generating Viral output", sep=" : "))
-  sapply(1:nrow(SNP_params), function(snp_num) {
-    Y = unlist(lapply(params$pops, function(population) {
-      unlist(lapply(params$strains, function(strain) {
-        filter = study_design[,"Population"] == population & study_design[,"Strain"] == strain
-        AF = SNP_params[snp_num,paste0("Y_", population,".",strain)]
-        Y = sample(0:1, size = sum(filter), prob = c(1 - AF,AF), replace = TRUE)
-        if(SNP_params[snp_num,"Causal"] && population %in% unlist(SNP_params[snp_num,"Associated_Populations"]) && strain %in% unlist(SNP_params[snp_num,"Associated_Strains"])) {
-          z = as.matrix(SNPs[,snp_num])[which(filter)]*params$beta
-          pr = 1/(1+exp(-z))
-          Y = Y + unlist(lapply(pr -0.5, function(pri) sample(0:1, 1, prob = c(1-pri, pri))))
-          Y[Y>1] = 1
-        }
-        Y })) })) 
-    Y[study_design[,"Population"] == "P2"] = Y[study_design[,"Population"] == "P1"]
-    Y
-  })}
-
-get_viral_output_sp2 <- function(study_design, SNPs, SNP_params, params) {
-  if(trace == TRUE) print(paste(Sys.time(),"Generating Viral output", sep=" : "))
-  sapply(1:nrow(SNP_params), function(snp_num) {
-    Y = unlist(lapply(params$pops, function(population) {
-      unlist(lapply(params$strains, function(strain) {
-        filter = study_design[,"Population"] == population & study_design[,"Strain"] == strain
-        AF = SNP_params[snp_num,paste0("Y_", population,".",strain)]
-        Y = sample(0:1, size = sum(filter), prob = c(1 - AF,AF), replace = TRUE)
-        if(SNP_params[snp_num,"Causal"] && population %in% unlist(SNP_params[snp_num,"Associated_Populations"]) && strain %in% unlist(SNP_params[snp_num,"Associated_Strains"])) {
-          z = as.matrix(SNPs[,snp_num])[which(filter)]*params$beta
-          pr = 1/(1+exp(-z))
-          Y = Y + unlist(lapply(pr -0.5, function(pri) sample(0:1, 1, prob = c(1-pri, pri))))
-          Y[Y>1] = 1
-        }
-        Y })) })) 
-    Y[study_design[,"Population"] == "P2"] = Y[study_design[,"Population"] == "P1"]
-    
-    Y2 = unlist(lapply(params$pops, function(population) {
-      unlist(lapply(params$strains, function(strain) {
-        filter = study_design[,"Population"] == population & study_design[,"Strain"] == strain
-        AF = SNP_params[snp_num,paste0("Y_", population,".",strain)]
-        Y2 = numeric(sum(filter))
-        if(SNP_params[snp_num,"Causal"] && population %in% unlist(SNP_params[snp_num,"Associated_Populations"]) && strain %in% unlist(SNP_params[snp_num,"Associated_Strains"])) {
-          z = as.matrix(SNPs[,snp_num])[which(filter)]*params$beta
-          pr = 1/(1+exp(-z))
-          Y2 = unlist(lapply(pr -0.5, function(pri) sample(0:1, 1, prob = c(1-pri, pri))))}
-        Y2})) }))
-    
-    Y[study_design[,"Population"] == "P2"] = Y[study_design[,"Population"] == "P2"] + Y2[study_design[,"Population"] == "P2"]
-    Y[Y>1] = 1
-    Y
-  })}
-
 get_viral_output_sp3 <- function(study_design, SNPs, SNP_params, params) {
   if(trace == TRUE) print(paste(Sys.time(),"Generating Viral output", sep=" : "))
   sapply(1:nrow(SNP_params), function(snp_num) {
@@ -253,18 +201,10 @@ get_viral_output <- function(study_design, SNPs, SNP_params, params) {
         Y })) })) })}
 
 analyse_viral <- function(SNPs, Y, study_design) {
-  #if(trace == TRUE) print(paste(Sys.time(),"Computing PC from SNPs for population stratification", sep=" : "))
-  #SNPs_PC = prcomp(SNPs, .scale = FALSE)
-  #nb_PCs_strains = ifelse(ncol(SNPs_PC$x)<5, ncol(SNPs_PC$x), 5)
-  #if(trace == TRUE) print(paste(Sys.time(),"Computing PC from Y for viral stratification", sep=" : "))
-  #strain_PC = prcomp(Y, .scale = FALSE)
-  #nb_PCs_strains = ifelse(ncol(strain_PC$x)<5, ncol(strain_PC$x), 5)
   if(trace == TRUE) print(paste(Sys.time(),"Computing GLM", sep=" : "))
   WO_PC = unlist(lapply(1:ncol(Y), function(SNP_Y_num) coef(summary(glm(Y[,SNP_Y_num]~SNPs[,SNP_Y_num])))[,4][2]))
   W_S_Pop_PC = unlist(lapply(1:ncol(Y), function(SNP_Y_num) coef(summary(glm(Y[,SNP_Y_num]~SNPs[,SNP_Y_num]+study_design[,"Population"])))[,4][2]))
   W_S_Vir_PC = unlist(lapply(1:ncol(Y), function(SNP_Y_num) coef(summary(glm(Y[,SNP_Y_num]~SNPs[,SNP_Y_num]+study_design[,"Strain"])))[,4][2]))
-  #W_C_Pop_PC = unlist(lapply(1:ncol(Y), function(SNP_Y_num) coef(summary(glm(Y[,SNP_Y_num]~SNPs[,SNP_Y_num]+SNPs_PC$x[,1:5])))[,4][2]))
   W_S_Pop_S_Vir_PC = unlist(lapply(1:ncol(Y), function(SNP_Y_num) coef(summary(glm(Y[,SNP_Y_num]~SNPs[,SNP_Y_num]+study_design[,"Population"]+study_design[,"Strain"])))[,4][2]))
-  #W_C_Pop_C_Vir_PC = unlist(lapply(1:ncol(Y), function(SNP_Y_num) coef(summary(glm(Y[,SNP_Y_num]~SNPs[,SNP_Y_num]+SNPs_PC$x[,1:5]+strain_PC$x[,1:nb_PCs_strains])))[,4][2]))
   if(trace == TRUE) print(paste(Sys.time(),"Parsing values", sep=" : "))   
   parse_pvalues(data.frame(WO_PC, W_S_Pop_PC, W_S_Vir_PC, W_S_Pop_S_Vir_PC, row.names = colnames(SNPs)), threshold)}
