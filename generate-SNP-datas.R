@@ -15,9 +15,10 @@ multiple_SNP_scenarios <- function(populations, neutral, neutral_S_rat, causal_S
   if(trace == TRUE) print(paste(Sys.time(),"Done", sep=" : "))
   stopCluster(cl)}
 
-SNP_scenario <- function(populations, neutral=0, neutral_S_rate=0, causal_S=c(), causal_NS=c()) {
+SNP_scenario <- function(populations, neutral=0, neutral_S_rate=0, causal_S=c(), causal_NS=c(), fst_strat) {
   populations = generate_population_structure_for_CC(populations)
-  SNP_params = generate_SNPs_frequencies(neutral, neutral_S_rate, causal_S, causal_NS, length(populations))
+  neutral_S = get_stratified_SNPs_qtt(neutral_S_rate,neutral)
+  SNP_params = generate_SNPs_frequencies(neutral - neutral_S, neutral_S, causal_S, causal_NS, populations, fst_strat)
   SNPs = generate_SNPs(SNP_params, populations)
   pvalues = analyse_SNP(SNPs, populations)
   summary_sim = summary_sim(pvalues, SNP_params)
@@ -53,31 +54,26 @@ generate_population_structure_for_CC <- function(populations) {
     else t(as.data.frame(populations))}
   colnames(populations) <- c("Case", "Control")
   rownames(populations) <- paste0("P", 1:nrow(populations))
-  populations}
+  populations
+  #do.call(rbind, lapply(1:nrow(populations), function(pop_num) {rbind(data.frame(CC = rep("Case", populations[pop_num,1]), Population = paste0("P",pop_num) ),data.frame(CC = rep("Control", populations[pop_num,2]), Population = paste0("P",pop_num) )) }))
+  }
 
-generate_SNPs_frequencies <- function(neutral_S, neutral_NS, causal_S, causal_NS, populations) {
+generate_SNPs_frequencies <- function(neutral_NS, neutral_S, causal_S, causal_NS, populations, fst_strat) {
   if(trace == TRUE) print(paste(Sys.time(),"Generating allele frequency", sep=" : "))
-  AF = {
-    if(neutral_S > 0) AF = sapply(1:nrow(populations), function(population) get_alternate_allele(replicate(neutral_S, runif(1,0.01,0.99))))
-    if(neutral_NS > 0) AF = rbind(AF, replicate(nrow(populations), get_alternate_allele(replicate(neutral_NS, runif(1,0.4,0.5)))))
-    if(length(causal_S) > 0) AF = rbind(AF, sapply(1:nrow(populations), function(population) get_alternate_allele(replicate(length(causal_S), runif(1,0.01,0.99)))))
-    if(length(causal_NS) > 0) rbind(AF, replicate(nrow(populations), get_alternate_allele(replicate(length(causal_NS), runif(1,0.4,0.5)))))}
-  
-  AF = setNames(data.frame(AF), paste0("P", 1:nrow(populations), "_AF"))
-  
-  SNP_names = {
-    if(neutral_S>0) SNP_names = sapply(1:neutral_S, function(snp_num)c(paste0('Snp_S_',snp_num,"_R0")))
-    if(neutral_NS >0) SNP_names = c(SNP_names, sapply(1:neutral_NS, function(snp_num) paste0('Snp_NS_',snp_num,"_R0")))
-    if(length(causal_S)>0) SNP_names = c(SNP_names, sapply(1:length(causal_S), function(snp_num)c(paste0('Snp_S_',snp_num,"_R", causal_S[snp_num]))))
-    if(length(causal_NS)>0) c(SNP_names, sapply(1:length(causal_NS), function(snp_num)c(paste0('Snp_NS_',snp_num,"_R", causal_NS[snp_num]))))}
-  
-  data.frame(AF, `R`=c(rep(0,neutral_S + neutral_NS), causal_S, causal_NS), row.names = SNP_names)}
-##TODO: parameter with number pop to draw from beta distribution
-get_alternate_allele <- function(reference_alleles) {
-  sapply(reference_alleles, function(reference_allele) {
-    s1 = reference_allele*(1-fcoeff)/fcoeff
-    s2 = (1-reference_allele)*(1-fcoeff)/fcoeff
-    rbeta(n = 1, shape1 = s1,shape2 = s2)})}
+ # nb_pop = length(levels(populations$Population))
+  nb_pop = ncol(populations)
+  f_neutral_NS = if(neutral_NS >0) data.frame(Stratified = F, Causal = F, R= NA , t(data.frame(replicate(neutral_NS, rep(get_AF(allele = runif(1,0.4,0.5), fst = fst_strat), nb_pop),simplify = F))))
+  f_neutral_S = if(neutral_S>0) data.frame(Stratified = T, Causal = F, R= NA , t(data.frame(replicate(neutral_S, get_AF(allele = runif(1,0.01,0.99), fst = fst_strat, nb = nb_pop),simplify = F))))
+  f_causal_NS = if(length(causal_NS)>0) data.frame(Stratified = F, Causal = T, R= causal_NS , t(data.frame(replicate(length(causal_NS), rep(get_AF(allele = runif(1,0.4,0.5), fst = fst_strat), nb_pop),simplify = F))))
+  f_causal_S = if(length(causal_S)>0) data.frame(Stratified = T, Causal = T, R= causal_S,  t(data.frame(replicate(length(causal_S), get_AF(allele = runif(1,0.01,0.99), fst = fst_strat, nb = nb_pop),simplify = F))))
+  SNP_params = rbind(f_neutral_NS, f_neutral_S, f_causal_NS, f_causal_S)
+  colnames(SNP_params) <- c("Stratified", "Causal", "R", paste0("P", 1:nb_pop))
+  SNP_names = c(if(neutral_NS >0) paste0('Snp_NS_',1:neutral_NS,"_R0"),
+    if(neutral_S>0) paste0('Snp_S_',1:neutral_S,"_R0"),
+    if(length(causal_NS)>0) paste0('Snp_NS_',1:length(causal_NS),"_R_", causal_NS),
+    if(length(causal_S)>0) paste0('Snp_S_',1:length(causal_S),"_R_", causal_S))
+  rownames(SNP_params) <- SNP_names
+  SNP_params}
 
 generate_SNPs <- function(SNP_params, populations) {
   if(trace == TRUE) print(paste(Sys.time(),"Generating SNPs dsitribution", sep=" : "))
@@ -91,23 +87,19 @@ generate_SNPs <- function(SNP_params, populations) {
   data}
 
 get_samples_name <- function(populations) {
-  #Refactor this by vectorizing
   unlist(lapply(1:nrow(populations), function(population) {
     c(if(populations[population,"Case"] > 0) {paste('Case', 'P', population, 'sample', 1:populations[population,"Case"],sep='_')},
       if(populations[population,"Control"] > 0) {paste('Control', 'P', population, 'sample', 1:populations[population,"Control"],sep='_')})}))}
 
 get_SNP_probability <- function(AFs, R = NA, CC = FALSE) {
   as.data.frame(lapply(AFs, function(alternate_allele) {
-    if(CC == FALSE) {
-      c((1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2)}
-    else {
-      c(`Case` =
-          if(!is.na(R)) {
-            p_associated = c((1-alternate_allele)^2, 2*as.numeric(R)*alternate_allele*(1-alternate_allele), as.numeric(R)^2 * alternate_allele^2 )
-            p_associated/(sum(p_associated) + (1-alternate_allele^2))}
-        else { 
-          c( (1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2 )},
-        `Control` = c( (1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2))}}))}
+    c(`Case` =
+      if(!is.na(R)) {
+        p_associated = c((1-alternate_allele)^2, 2*as.numeric(R)*alternate_allele*(1-alternate_allele), as.numeric(R)^2 * alternate_allele^2 )
+        p_associated/(sum(p_associated) + (1-alternate_allele^2))}
+      else { 
+        c( (1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2 )},
+      `Control` = c( (1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2))}))}
 
 analyse_SNP <- function(SNPs, populations) {
   simulated_PC = rep(1:nrow(populations), populations[1:nrow(populations),"Control"] + populations[1:nrow(populations), "Case"])
@@ -122,3 +114,23 @@ analyse_SNP <- function(SNPs, populations) {
   if(trace == TRUE) print(paste(Sys.time(),"Computing logistic regression without PC", sep=" : "))
   WO_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP)))[,4][2])
   parse_pvalues(data.frame(WO_PC, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs)), threshold)}
+
+
+
+####Constants
+C0 = list(`P1` = c(`case` = 1250, `control` = 1250), `P2` = c(`case` = 1250, `control`  = 1250))
+C1 = list(`P1` = c(`case` = 200, `control` = 400), `P2` = c(`case` = 400, `control`  = 200))
+C2 = list(`P1` = c(`case` = 400, `control` = 200), `P2` = c(`case` = 200, `control` = 400))
+C3 = list(`P1` = c(`case` = 300, `control` = 0), `P2` = c(`case` = 300, `control` = 600))
+C4 = list(`P1` = c(`case` = 300, `control` = 200), `P2` = c(`case` = 200, `control` = 100), `P3` = c(`case` = 100, `control` = 300))
+C5 = list(`P1` = c(`case` = 200, `control` = 0), `P2` = c(`case` = 400, `control` = 200), `P3` = c(`case` = 0, `control` = 400))
+AllPop = list(`C1` = C1, `C2`= C2, `C3` = C3, `C4` = C4, `C5` = C5)
+threshold = 5e-07
+
+fcoeff  = 0.01 ##### Wright's coefficient for inbreeding
+trace = TRUE
+populations =  generate_population_structure_for_CC(C0)
+SNP_scenario(C0,  neutral = 100000, 
+             neutral_S_rate = 0.05, 
+             causal_NS = seq(1,2, by = 0.05),
+             causal_S = seq(1,2, by = 0.05), fcoeff)
