@@ -11,57 +11,39 @@ parse_pvalues<- function(pvalues, threshold) {
 regen_signiff <- function(pvalues, threshold) {
   parse_pvalues(data.frame(`WO_PC` = pvalues[,"WO_PC.pval"], `W_simulated_PC` = pvalues[,"W_simulated_PC.pval"], `W_computed_PC` = pvalues[,"W_computed_PC.pval"], row.names = rownames(pvalues)), threshold)}
 
-summary_sim <- function(pvalues, aa.params) {
+summary_sim <- function(pvalues, params, filter) {
   mapply(function(result, name) {
-    FP_neutral = rownames(aa.params[result$signiff != "ns" & !aa.params[,"Associated"],])
-    FN_causal = rownames(aa.params[result$signiff == "ns" & aa.params[,"Associated"],])
-    z = qnorm(result[aa.params[,"Associated"] == FALSE,]$pval/2)
-    lambda = median(z^2)/0.456
+    FP_neutral = rownames(params[result$signiff != "ns" & !params[,filter],])
+    FN_causal = rownames(params[result$signiff == "ns" & params[,filter],])
+    z = qnorm(result[params[,filter] == FALSE,]$pval/2)
+    lambda = median(z^2,na.rm = T)/0.456
     names = c("FP_neutral", "FN_causal")
     sum = c(length(FP_neutral), length(FN_causal))
-    ratio = (sum/c(sum(!aa.params[,"Associated"]), sum(aa.params[,"Associated"]) ) )*100
+    ratio = (sum/c(sum(!params[,filter]), sum(params[,filter]) ) )*100
     ratio[is.nan(ratio)] = 0
     total = data.frame(sum, ratio, row.names = names)
     power_gain = median(-log10(pvalues$WO_correction$pval/result$pval), na.rm = T)
     res_full = list(`SNP` = c(FP_neutral, FN_causal), `sum`=setNames(sum,names),`ratio`=setNames(ratio, names), `lambda` = lambda)
     res = list(`FP_sum`=sum[1],`FP_ratio`=ratio[1], `FN_sum`=sum[2],`FN_ratio`=ratio[2], `lambda` = lambda, `power_gain` = power_gain)
-    print(paste0("For ", name))
-    print(paste0(" -Median power gain from uncorrected GLM (-log10(pval)) on FN Causal is ", power_gain[1]))
-    print(paste0(" -Ratio of FN causal/Total causal ", ratio[1]))
-    #    print(paste0(" -Power Gain on FN Causal is ", power_gain[1], collapse=", "))
-    #    print(paste0(" -Ratio is ", ratio, collapse=", "))
     Filter(length, res)}, pvalues, names(pvalues))}
 
-trace_plot <- function(pvalues, save = TRUE, file = paste0(Sys.time(),".png")) {
+plot_GWAS <- function(pvalues, SNP_params, save = TRUE, file = paste0(Sys.time(),".png")) {
   if(trace == TRUE) ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting plots", sep=" : ")))
+  tag = c("Without correction", "With human groups", "With viral groups", "With human and viral groups")
+  tag = names(pvalues)
   mapply(function(main_name, condition) {
-    #qq(condition$pval,name)
-    result = select(as.data.frame(pvalues), starts_with(condition))
-    colnames(result) <- c("pval", "signiff", "dpval")
+    result = cbind(`Stratified` = SNP_params$Stratified, `Causal` = SNP_params$Causal,`R` = SNP_params$R, pvalues[[condition]])
+    result$SNP_type = mapply(function(stratified, causal) {paste(if(stratified) "Stratified" else "Non-Stratified", if(causal) "Causal" else "Non-Causal")}, result$Stratified, result$Causal)
     result$pval = -log10(result$pval)
-    result$SNP = 1:length(result$pval)
-    p <- ggplot(result, aes(SNP, pval))
-    p + geom_point(aes(colour = signiff)) + scale_colour_manual(values =c("ns"="black", "*"="yellow", "**"="orange", "***"="pink", "+"="red")) + geom_hline(yintercept = -log10(threshold)) + labs(title = main_name, x = "SNP")
+    result$SNP_num = 1:length(result$pval)
+    p <- ggplot(result, aes(SNP_num, pval))
+    p + geom_point(aes(colour = SNP_type)) + scale_colour_manual(values =c("orange", "black", "red", "grey")) + geom_hline(yintercept = -log10(threshold)) + labs(title = main_name, x = "SNP")+
+      theme(axis.text = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
+      scale_y_continuous(limits = c(0, 45))
     if(save == TRUE) ggsave(filename = paste0(file,"-",main_name,".png"), width = 20, height = 14)
-  },c("Without correction", "With human groups", "With ciral groups", "With human and viral groups"), names(pvalues))}
+  },tag, names(pvalues))}
 
-trace_boxplot <- function(res, save = TRUE, out = TRUE, file = paste0(Sys.time(),".png"), prefix="") {
-  if(trace == TRUE) ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting plots", sep=" : "))) 
-  #colnames(res) <- c("Without correction", "With human groups", "With viral groups", "With human and viral groups")
-  res = melt(res,measure.vars = 1:ncol(res))
-  p <- ggplot(res, aes(variable, value))
-  p <- if(out == TRUE) {
-    # compute lower and upper whiskers
-    ylim1 = boxplot.stats(res$value)$stats[c(1, 5)]
-    # scale y limits based on ylim1
-    p + coord_cartesian(ylim = ylim1*1.05)
-  } else p
-  p + geom_boxplot(outlier.color = "grey", aes(fill=variable)) + geom_hline(yintercept = -log10(threshold), colour="red") + 
-    labs(title = "pvalues with different covariates", y = "-log10(pval)", x="covariate") + 
-    theme(axis.text.x=element_blank(), axis.text.y = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) + 
-    if(save == TRUE) ggsave(filename = paste0(file,prefix), width = 14, height = 18)}
-
-trace_boxplotlim <- function(res, save = TRUE, out = TRUE, file = paste0(Sys.time(),".png")) {
+plot_G2G_setup <- function(res, save = TRUE, out = TRUE, lim = NULL, file = paste0(Sys.time(),".png", title="")) {
   if(trace == TRUE) ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting plots", sep=" : "))) 
   colnames(res) <- c("Without correction", "With human groups", "With viral groups", "With human and viral groups")
   res = melt(res,measure.vars = 1:4)
@@ -73,10 +55,10 @@ trace_boxplotlim <- function(res, save = TRUE, out = TRUE, file = paste0(Sys.tim
     p + coord_cartesian(ylim = ylim1*1.05)
   } else p
   p + geom_boxplot(outlier.color = "grey", aes(fill=variable)) + geom_hline(yintercept = -log10(threshold), colour="red") + 
-    labs(title = "pvalues with different covariates", y = "-log10(pval)", x="covariate") + 
+    labs(title = paste(title, "pvalues with different covariates"), y = "-log10(pval)", x="covariate") + 
     theme(axis.text.x=element_blank(), axis.text.y = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) + 
-    scale_y_continuous(limits = c(0, 15)) +
-    guides(fill=FALSE)  
+    if(!is.null(lim)) scale_y_continuous(limits = lim) +
+    guides(fill=FALSE)
   if(save == TRUE) ggsave(filename = file, width = 14, height = 18)}
 
 qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
@@ -89,12 +71,11 @@ write <- function(res, tag = NULL, output_dir = getwd()) {
   end = Sys.time()
   dir.create(output_dir, showWarnings = FALSE, recursive = FALSE, mode = "0777")
   trace_plot(res$pvalues, save = TRUE, file = paste0(output_dir, tag, "-plots-(", end, ")"))
-  trace_boxplot(-log10(select(as.data.frame(res$pvalues), ends_with("pval"))), save = TRUE, file = paste0(output_dir, tag, "-boxplots-(", end, ").png"))
-  trace_boxplotlim(-log10(select(as.data.frame(res$pvalues), ends_with("pval"))), save = TRUE, file = paste0(output_dir, tag, "-boxplots-lim-(", end, ").png"))
-  trace_boxplot(select(as.data.frame(res$pvalues), ends_with("pval_diff")), save = TRUE, file = paste0(output_dir, tag, "-boxplots_pvaldiff-(", end, ").png"))
-  trace_boxplot(-log10(select(as.data.frame(res$pvalues), ends_with("pval"))),out = FALSE, save = TRUE, file = paste0(output_dir, tag, "-boxplots-out-(", end, ").png"))
-  trace_boxplot(select(as.data.frame(res$pvalues), ends_with("pval_diff")),out = FALSE, save = TRUE, file = paste0(output_dir, tag, "-boxplots_pvaldiff-out-(", end, ").png"))
-  #  trace_plot(res$pvalues,res$scenarios, save = TRUE, file = paste0(output_dir, tag, "-plots-(", end, ").png"))
+  plot_G2G_setup(-log10(select(as.data.frame(res$pvalues), ends_with("pval"))), save = TRUE, file = paste0(output_dir, tag, "-boxplots-(", end, ").png"))
+  plot_G2G_setup(-log10(select(as.data.frame(res$pvalues), ends_with("pval"))), save = TRUE, file = paste0(output_dir, tag, "-boxplots-lim-(", end, ").png"))
+  plot_G2G_setup(select(as.data.frame(res$pvalues), ends_with("pval_diff")), save = TRUE, lim=c(0,15), file = paste0(output_dir, tag, "-boxplots_pvaldiff-(", end, ").png"))
+  plot_G2G_setup(-log10(select(as.data.frame(res$pvalues), ends_with("pval"))),out = FALSE, save = TRUE, file = paste0(output_dir, tag, "-boxplots-out-(", end, ").png"))
+  plot_G2G_setup(select(as.data.frame(res$pvalues), ends_with("pval_diff")),out = FALSE, save = TRUE, file = paste0(output_dir, tag, "-boxplots_pvaldiff-out-(", end, ").png"))
   #write.table(x = res$pvalues, file = paste0(output_dir, tag, "-pvalues-(", end, ").csv"))
   #write.table(x = res$SNP_params, file = paste0(output_dir, tag, "-SNP_params-(", end, ").csv"))
   res$SNP_params[,"Associated_Populations"] = vapply(res$SNP_params[,"Associated_Populations"], paste, collapse = ", ", character(1L))
