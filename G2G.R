@@ -53,29 +53,40 @@ to_study_design <- function(structure) {
 		do.call(rbind, lapply(1:ncol(structure), function(strain_num) {
 			data.frame(Strain = rep(chartr("123456789", "ABCDEFGHI", strain_num), structure[strain_num,pop_num]), Population = paste0("P",pop_num) ) }))})) }
 
-associate <- function(AA, SNP, replicate=1) {
-	AA$AA$associated_SNPs = list(SNP$SNP$id)
-	SNP$SNP$associated_AAs = list(AA$AA$id)
-	c(AA,SNP)}
+associate <- function(SNP, AA, replicate=1) {
+	#match.call()$`AA`
+	subAA= substitute(AA)
+	subSNP = substitute(SNP)
+	res = replicate(replicate, {
+		AA = eval(subAA)
+		SNP = eval(subSNP)
+		AA$AA$associated_SNPs = list(SNP$SNP$id)
+		SNP$SNP$associated_AAs = list(AA$AA$id)
+		c(AA,SNP)
+	}, simplify = F)
+	list(`AA` = rbind_all(lapply(res, function(ele) ele$AA)), `SNP` = rbind_all(lapply(res, function(ele) ele$SNP)))	}
 
-add_AA <- function(...) list(`AA` =do.call(rbind, list(...)))
+add_AA <- function(...)	list(`AA` = do.call(rbind, list(...)))
 
 AA_conf <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, associated_strains = NA, associated_populations =NA, beta=NA, bio_tag=c('min'=30, 'max'=60)) {
-	id =  get_id("AA",size)
-	id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias, beta)
-	bio_tag = if(is.character(bio_tag)) bio_tag else generate_biological_tag(size, bio_tag)
-	
-	data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias),
-	Associated_Strains= list(associated_strains), Associated_Populations = list(associated_populations), beta, fst_strat, fst_bias, size, id = list(id), id_tag)}
+	do.call(rbind, lapply(fst_strat, function(fst_strat) {
+		do.call(rbind, lapply(fst_bias, function(fst_bias) {
+			do.call(rbind, lapply(beta, function(beta) {
+			id =  get_id("AA",size)
+			id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias, beta)
+			bio_tag = if(is.character(bio_tag)) bio_tag else generate_biological_tag(size, bio_tag)
+			data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias),
+				Associated_Strains= list(associated_strains), Associated_Populations = list(associated_populations), beta, `fst_strat` = fst_strat, `fst_bias` = fst_bias, size, id = list(id), id_tag, bio_tag = list(bio_tag))}))}))}))}
 
 add_SNP <- function(...) list(`SNP` = do.call(rbind, list(...)))
 
 SNP_conf <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, bio_tag=c('min'=30, 'max'=60)) {
-	id =  get_id("SNP",size)
-	id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias)
-	bio_tag = if(is.character(bio_tag)) bio_tag else generate_biological_tag(size, bio_tag)
-	
-	data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias), fst_strat, fst_bias, size, id = list(id), id_tag)}
+	do.call(rbind, lapply(fst_strat, function(fst_strat) {
+		do.call(rbind, lapply(fst_bias, function(fst_bias) {
+			id =  get_id("SNP",size*length(fst_strat)*length(fst_bias))
+			id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias)
+			bio_tag = if(is.character(bio_tag)) bio_tag else generate_biological_tag(size, bio_tag)
+			data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias), `fst_strat` = fst_strat, `fst_bias`= fst_bias, size, id = list(id), id_tag, bio_tag = list(bio_tag))}))}))}
 
 generate_id_tag <- function(fst_strat=NA, partial_strat=NA, fst_bias=NA, partial_bias=NA, beta=NA) {
 	round_me <- function(prefix, param) ifelse(is.na(param),"", paste0(prefix,"-",round(param, digits=2)))
@@ -124,8 +135,8 @@ get_AA <- function(study_design, AA.scenarios, SNP.data) {
 		AA.scenario$Associated_Populations = list(if(!is.na(associated_populations)) if(associated_populations == "full") populations else if(associated_populations == "half") sample(populations, 1) else associated_populations)
 		AA.scenario$Associated_Strains = list(if(!is.na(associated_strains)) if(associated_strains == "full") strains else if(associated_strains == "half") sample(strains, 1) else associated_strains)
 		AA.freq = get_frequencies(AA.scenario, strains,populations)
-		associated_SNPs = SNP.data[,unlist(AA.scenario$associated_SNPs)]
-		AA.data = generate_AAs(AA.freq, AA.scenarios, study_design, associated_SNPs)
+		associated_SNPs = SNP.data[,unlist(AA.scenario$associated_SNPs), drop = F]
+		AA.data = generate_AAs(AA.freq, AA.scenario, study_design, associated_SNPs)
 		colnames(AA.data) <- unlist(AA.scenario$id)
 		AA.data}))}
 
@@ -176,18 +187,18 @@ generate_SNPs_for_G2G <- function(SNP.freq, study_design) {
 	nb_populations = length(levels(study_design$Population))
 	if(trace == TRUE) print(paste(Sys.time(),"Generating SNPs dsitribution with viral properties", sep=" : "))
 	nb = summarize(group_by(study_design,Population, Strain), nb = n())$nb
-	SNP = sapply(1:nrow(SNP.freq), function(snp_num) {
+	SNP = unlist(lapply(1:nrow(SNP.freq), function(snp_num) {
 		p = as.data.frame(lapply(SNP.freq[snp_num,], function(alternate_allele) {c((1-alternate_allele)^2, 2*alternate_allele*(1-alternate_allele), alternate_allele^2)}))    
 		unlist(lapply(1:nb_populations, function(population_num) {
 			iterator = ((population_num - 1 ) * nb_strains) + 1
 			unlist(lapply(iterator:(iterator + nb_strains - 1), function(selector) {
-				sample(c(0,1,2), size = nb[selector], prob = p[,selector], replace = TRUE) })) })) })
+				sample(c(0,1,2), size = nb[selector], prob = p[,selector], replace = TRUE) })) })) }))
 	matrix(data = SNP ,nrow = nrow(study_design), ncol = nrow(SNP.freq), dimnames = list(rownames(study_design), rownames(SNP.freq)))}
 
 generate_AAs <- function(AA.freq, scenario, study_design, associated_SNPs) {
 	strains = levels(study_design$Strain)
 	populations = levels(study_design$Population)
-	if(trace == TRUE) print(paste(Sys.time(),"Generating Viral output", sep=" : "))
+	if(trace == TRUE) print(paste(Sys.time(),"Generating Viral output for",scenario$bio_tag, sep=" : "))
 	res = sapply(1:nrow(AA.freq), function(aa_num) {
 		unlist(lapply(populations, function(population) {
 			unlist(lapply(strains, function(strain) {
@@ -195,7 +206,7 @@ generate_AAs <- function(AA.freq, scenario, study_design, associated_SNPs) {
 				AF = AA.freq[aa_num,paste0("F_",strain ,".",population)]
 				Y = sample(0:1, size = sum(filter), prob = c(1 - AF,AF), replace = TRUE)
 				if(!is.null(associated_SNPs) && population %in% unlist(scenario$Associated_Populations) && strain %in% unlist(scenario$Associated_Strains)) {
-					z = as.matrix(associated_SNPs[,aa_num])[which(filter)]*scenario$beta
+					z = associated_SNPs[which(filter),,drop=F]%*%rep(scenario$beta, ncol(associated_SNPs))
 					pr = 1/(1+exp(-z))
 					Y = Y + unlist(lapply(pr -0.5, function(pri) sample(0:1, 1, prob = c(1-pri, pri))))
 					Y[Y>1] = 1}
