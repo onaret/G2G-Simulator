@@ -4,55 +4,18 @@ source("G2G.R")
 parse_G2G_config <- function(study_design, ...) {
 	set_env("AA", 0)
 	set_env("SNP", 0)
+	#Turn it to calls list to set last AA_id and last SNP_id after last G2G_conf call
 	s = list(...)
-	AA.scenarios = rbind_all(lapply(s, function(ele) ele$AA))
-	SNP.scenarios = rbind_all(lapply(s, function(ele) ele$SNP))
+	AA.scenarios = rbind_all(lapply(s, function(ele) ele$AA.scenarios))
+	SNP.scenarios = rbind_all(lapply(s, function(ele) ele$SNP.scenarios))
 	SNP.data = get_SNP(study_design, SNP.scenarios)
 	AA.data = get_AA(study_design, AA.scenarios, SNP.data)
 	list(`AA.scenarios` = AA.scenarios,`AA.data` = AA.data, `SNP.data` = SNP.data, `SNP.scenarios` = SNP.scenarios)}
 
+#Here receive last AA_id, last SNP_id, turn replicate to for loops to set last id after last AA or SNP call.
 #@`...`: AA() | SNP() | association()
 G2G_conf<- function(...,bio_tag, replicate = 1) {
 	calls = match.call(expand.dots = FALSE)$`...`
-	
-	#Future prototype avoiding id in env_var
-	if(FALSE) {
-		SNP_id = 0
-		AA_id = 0
-		
-		call_all <- function(){
-			res = lapply(calls, function(call) {
-				call_SNP_AA <-function(call) {
-					if(call[1] == "SNP()"){
-						call$id = SNP_id + 1
-						SNP_id = SNP_id + call$size}
-					else if(call[1] == "AA()") {
-						call$id = AA_id + 1
-						AA_id = AA_id + call$size}
-					call}
-				
-				if(call[1] == "association()"){
-					call_mod = lapply(call[2:length(call)], call_SNP_AA)
-					do.call(association, call_mod)}
-				else{
-					eval(call_SNP_AA(call))}})}
-		
-		#Check bio_tag to reimplement automated one
-		biot_tags = paste0(bio_tag,"_", 1:replicate)
-		
-		res = lapply(biot_tags, function(bio_tag) {
-			res = call_all()
-			##Do something here for those that were in association, assure you get them back
-			AA = rbind_all(lapply(unlist(res,recursive =F), function(res) res$AA))
-			SNP = rbind_all(lapply(unlist(res,recursive =F), function(res) res$SNP))
-			AA$bio_tag = bio_tag
-			SNP$bio_tag = bio_tag
-			list(`AA` = AA, `SNP` = SNP)})
-		
-		##Here the should not be anymore issue with those in association, we just gather replications
-		AA = rbind_all(lapply(res, function(res) res$AA))
-		SNP = rbind_all(lapply(res, function(res) res$SNP))
-		list(`AA` = AA, `SNP` = SNP)}
 	
 	#Acutal working one
 	res = lapply(paste0(bio_tag,"_", 1:replicate), function(bio_tag) {
@@ -67,22 +30,22 @@ G2G_conf<- function(...,bio_tag, replicate = 1) {
 				do.call(association, call_mod)}
 			else {stop(paste0(call[1], " is not a valid function call"))}})})
 	##Could merge scenario having same id_tag and different biotag, need to recalculate 'Size', and merge 'id'
-	AA = rbind_all(lapply(unlist(res,recursive =F), function(res) res$AA))
-	SNP = rbind_all(lapply(unlist(res,recursive =F), function(res) res$SNP))
+	AA.scenarios = rbind_all(lapply(unlist(res,recursive =F), function(res) res$AA.scenarios))
+	SNP.scenarios = rbind_all(lapply(unlist(res,recursive =F), function(res) res$SNP.scenarios))
 	
-	res = list(`AA` = AA, `SNP` = SNP)	}
+	res = list(`AA.scenarios` = AA.scenarios, `SNP.scenarios` = SNP.scenarios)	}
 
 #@`...`: AA() | SNP()
 association <- function(...) {
 	res = list(...)
-	AA = rbind_all(lapply(res, function(ele) ele$AA))
-	SNP = rbind_all(lapply(res, function(ele) ele$SNP))
-	AA$associated_SNPs = list(unlist(SNP$id))
-	AA$associated_SNP_tag = list(unique(unlist(SNP$bio_tag)))
-	list(`AA` = AA, `SNP` = SNP)	}
+	AA.scenarios = rbind_all(lapply(res, function(ele) ele$AA.scenarios))
+	SNP.scenarios = rbind_all(lapply(res, function(ele) ele$SNP.scenarios))
+	AA.scenarios$associated_SNPs = list(unlist(SNP.scenarios$id))
+	AA.scenarios$associated_SNP_tag = list(unique(unlist(SNP.scenarios$bio_tag)))
+	list(`AA.scenarios` = AA.scenarios, `SNP.scenarios` = SNP.scenarios)	}
 
 AA <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, associated_strains = NA, associated_populations =NA, beta=NA, bio_tag=NA) {
-	list(`AA` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
+	list(`AA.scenarios` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
 		do.call(rbind, lapply(fst_bias, function(fst_bias) {
 			do.call(rbind, lapply(beta, function(beta) {
 				id =  get_id("AA",size)
@@ -92,7 +55,7 @@ AA <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased =
 									 Associated_Strains= list(associated_strains), Associated_Populations = list(associated_populations), beta, `fst_strat` = fst_strat, `fst_bias` = fst_bias, size, id = list(id), id_tag, bio_tag)}))}))})))}
 
 SNP <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, bio_tag=NA) {
-	list(`SNP` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
+	list(`SNP.scenarios` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
 		do.call(rbind, lapply(fst_bias, function(fst_bias) {
 			id =  get_id("SNP",size)
 			id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias)
@@ -270,13 +233,11 @@ plot_collapsed_G2G <- function(res, SNP.scenarios, AA.scenarios, analyse, file_t
 			mapply(function(AA_id, associated_SNP_tag){
 				if(!is.null(unlist(associated_SNP_tag))) {
 					do.call(rbind, lapply(unlist(AA_id), function(aa_id){
-						do.call(rbind, lapply(unlist(associated_SNP_tag), function(SNP_tag){c(SNP_tag, aa_id)}))}))}},
+						do.call(rbind, lapply(unlist(associated_SNP_tag), function(SNP_tag){ data.frame("Tag" = SNP_tag, "AA" = aa_id)}))}))}},
 				AA.scenarios$id, AA.scenarios$associated_SNP_tag)))
 		
-		colnames(association_table) <- c("Tag", "AA")
 		association_table$associated <- T
-		association_table$AA = as.numeric(association_table$AA)
-		levels(association_table) <- levels(res)
+		levels(association_table$Tag) <- levels(res$Tag)
 		res = right_join(as.data.frame(association_table), res, by = c("Tag", "AA"))
 		res$associated[is.na(res$associated)] <- F
 		

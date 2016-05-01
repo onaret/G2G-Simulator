@@ -68,10 +68,6 @@ data_purer = parse_G2G_config(
 		SNP(30),
 		bio_tag = "no-path", replicate = 5))
 
-
-
-
-
 data_exp = parse_G2G_config(
 	study_design,
 	G2G_conf(
@@ -480,22 +476,17 @@ SNP.scenarios = data$SNP.scenarios
 rm(data)
 gc()
 
-
 WO_correction = T
 #W_human_PC = T
 #W_strain_PC = T
 #W_both_PC = T
-
 W_human_PC = F
 W_strain_PC = F
 W_both_PC = F
-
-
 W_both_groups = F
 W_human_group = F
 W_strain_group = F
 W_non_linear_PC = F
-
 
 analyse = "logistic"
 res_log = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
@@ -512,8 +503,6 @@ plot_collapsed_G2G(res_skat_l, SNP.scenarios, AA.scenarios, analyse, file_tag)
 analyse = "skato"
 res_skato = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
 plot_collapsed_G2G(res_skato, SNP.scenarios, AA.scenarios, analyse, file_tag)
-
-
 
 close_me <-function() {
 	
