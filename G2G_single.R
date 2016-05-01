@@ -33,7 +33,7 @@ test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bia
 	
 	AA = apply(SNP, 2, function(snp.data) {
 		get_AA(study_design, data_frame(`size` = 1, `Stratified` = scenario$Y_Stratified, `Partial_Stratification` = scenario$Y_Partial_Stratification, `fst_strat` = fst_strain_strat, `Biased`= scenario$Y_Biased, `Partial_Bias`= scenario$Y_Partial_Bias, `fst_bias` = fst_strain_bias,
-		`Associated_Strains`=scenario$Associated_Strains, `Associated_Populations`= scenario$Associated_Populations, beta=scenario$beta), associated_SNPs = as.matrix(snp.data))
+																		`Associated_Strains`=scenario$Associated_Strains, `Associated_Populations`= scenario$Associated_Populations, beta=scenario$beta), associated_SNPs = as.matrix(snp.data))
 	})
 	
 	threshold <<- 0.05/(ncol(SNP+ncol(AA)))
@@ -78,8 +78,8 @@ plot_G2G_setup <- function(G2SR, save = FALSE, out = TRUE, file = Sys.time()) {
 		p + geom_boxplot(outlier.color = "grey", aes(fill=variable)) + geom_hline(yintercept = -log10(threshold), colour="red") + 
 			labs(title = paste(name, "pvalues with different covariates"), y = "-log10(pval)", x="covariate") + 
 			theme(axis.text.x=element_blank(), axis.text.y = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36))# + 
-			#if(!is.null(lim)) scale_y_continuous(limits = lim) +
-			#guides(fill=FALSE)
+		#if(!is.null(lim)) scale_y_continuous(limits = lim) +
+		#guides(fill=FALSE)
 		if(save == TRUE) ggsave(filename = paste0(file,name,".png"), width = 14, height = 18)
 	}, list(G2GSR, G2GSRD), c("G2GR", "G2GRD"))}
 
@@ -96,4 +96,4 @@ write_G2G_setup <- function(res, tag = NULL, output_dir = paste0(getwd(), "/")) 
 	#write.table(x = res$params, file = paste0(output_dir, tag, "-params-(", end, ").csv"))
 	#write.table(x = res$scenario, file = paste0(output_dir, tag, "-scenario-(", end, ").csv"))
 	#write.table(x =res$summary_sim, file = paste0(output_dir, tag, "-summary-(", end, ").csv"))
-	}
+}
