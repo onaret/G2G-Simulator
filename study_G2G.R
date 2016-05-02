@@ -6,6 +6,7 @@ library(ggplot2)
 library(tidyr)
 library(parallel)
 library(SKAT)
+library(globaltest)
 
 source("G2G_full.R")
 source("G2G_single.R")
@@ -20,21 +21,7 @@ nb_cpu = 30
 mixstrat = c(0.2)
 mixbeta = c(0.3)
 
-##Biotag fs2_ss2
-data_half = parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(20),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.25))),
-		SNP(25),
-		AA(7),
-		bio_tag = "fs2_ss1",
-		replicate = 5))
+##Biotag fs2_ss1
 
 data_base =	parse_G2G_config(
 	study_design,
@@ -49,40 +36,22 @@ data_base =	parse_G2G_config(
 		SNP(42),
 		AA(7),
 		bio_tag = "fs2_ss1",
-		replicate = 5))
+		replicate = 10))
 
-data_purer = parse_G2G_config(
+data_half = parse_G2G_config(
 	study_design,
 	G2G_conf(
 		association(
-			SNP(5),
+			SNP(20),
 			AA(
 				1,
 				associated_strains = "full",
 				associated_populations = "full",
 				beta = c(0.25))),
+		SNP(25),
 		AA(7),
 		bio_tag = "fs2_ss1",
-		replicate = 5),
-	G2G_conf(
-		SNP(30),
-		bio_tag = "no-path", replicate = 5))
-
-data_exp = parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(1),
-			SNP(5, stratified = "full", fst_strat = mixstrat),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.25))),
-		AA(7),
-		SNP(44),
-		bio_tag = "fs2_ss1",
-		replicate = 5))
+		replicate = 10))
 
 data_full = parse_G2G_config(
 	study_design,
@@ -98,51 +67,101 @@ data_full = parse_G2G_config(
 		bio_tag = "fs2_ss1",
 		replicate = 20))
 
-data_imp = 	 
-	parse_G2G_config(
-		study_design,
-		G2G_conf(
-			association(
-				SNP(5, stratified = "full", fst_strat = mixstrat),
-				AA(
-					1,
-					stratified = "full",
-					fst_strat = mixstrat,
-					associated_strains = "full",
-					associated_populations = "full",
-					beta = mixbeta
-				)
-			),
-			
-			SNP(1, stratified = "full", fst_strat = mixstrat),
-			SNP(42),
-			AA(1, stratified = "full", fst_strat = mixstrat),
-			AA(7),
-			bio_tag = "fs2_ss1",
-			replicate = 5
-		),
-		G2G_conf(
-			association(
-				SNP(5, stratified = "full", fst_strat = mixstrat),
-				AA(
-					1,
-					stratified = "full",
-					fst_strat = mixstrat,
-					associated_strains = "full",
-					associated_populations = "full",
-					beta = mixbeta
-				)
-			),
-			
-			SNP(1, stratified = "full", fst_strat = mixstrat),
-			SNP(42),
-			AA(1, stratified = "full", fst_strat = mixstrat),
-			AA(7),
-			bio_tag = "fs2_ss_bis",
-			replicate = 5
-		)
-	)
+data_purer = parse_G2G_config(
+	study_design,
+	G2G_conf(
+		association(
+			SNP(5),
+			AA(
+				1,
+				associated_strains = "full",
+				associated_populations = "full",
+				beta = c(0.1))),
+		AA(7),
+		bio_tag = "fs2_ss1",
+		replicate = 10),
+	G2G_conf(
+		SNP(30),
+		bio_tag = "no-path", replicate = 10))
 
+data_strat_base = parse_G2G_config(
+	study_design,
+	G2G_conf(
+		association(
+			SNP(3),
+			SNP(2, stratified = "full", fst_strat = mixstrat),
+			AA(
+				1,
+				associated_strains = "full",
+				associated_populations = "full",
+				beta = c(0.25))),
+		SNP(42),
+		SNP(1, stratified = "full", fst_strat = mixstrat),
+		AA(7),
+		AA(1, stratified = "full", fst_strat = mixstrat),
+		bio_tag = "fs2_ss1",
+		replicate = 10))
+
+
+data_strat_half = parse_G2G_config(
+	study_design,
+	G2G_conf(
+		association(
+			SNP(11),
+			SNP(10, stratified = "full", fst_strat = mixstrat),
+			AA(
+				1,
+				associated_strains = "full",
+				associated_populations = "full",
+				beta = c(0.25))),
+		SNP(21),
+		SNP(1, stratified = "full", fst_strat = mixstrat),
+		AA(7),
+		AA(1, stratified = "full", fst_strat = mixstrat),
+		bio_tag = "fs2_ss1",
+		replicate = 10))
+
+
+data_dstrat_base = parse_G2G_config(
+	study_design,
+	G2G_conf(
+		association(
+			SNP(3),
+			SNP(2, stratified = "full", fst_strat = mixstrat),
+			AA(
+				1,
+				associated_strains = "full",
+				associated_populations = "full",
+				stratified = "full",
+				fst_strat = mixstrat,
+				beta = c(0.25))),
+		SNP(42),
+		SNP(1, stratified = "full", fst_strat = mixstrat),
+		AA(7),
+		AA(1, stratified = "full", fst_strat = mixstrat),
+		bio_tag = "fs2_ss1",
+		replicate = 10))
+
+
+data_dstrat_half = parse_G2G_config(
+	study_design,
+	G2G_conf(
+		association(
+			SNP(11),
+			SNP(10, stratified = "full", fst_strat = mixstrat),
+			AA(
+				1,
+				associated_strains = "full",
+				associated_populations = "full",
+				stratified = "full",
+				fst_strat = mixstrat,
+				beta = c(0.25))),
+		SNP(21),
+		SNP(1, stratified = "full", fst_strat = mixstrat),
+		AA(7),
+		AA(1, stratified = "full", fst_strat = mixstrat),
+		bio_tag = "fs2_ss1",
+		replicate = 10))
 
 
 data = {
@@ -459,50 +478,53 @@ data = {
 		)
 	}
 }
-data = data_exp
-data = data_full
-data=data_imp
 
-data = data_half
-data = data_base
-data = data_purer
+if(FALSE) {
+	data = data_exp
+	data = data_full
+	data=data_imp
+	
+	data = data_half
+	file_tag="data-half"
+	data = data_base
+	file_tag="data-base"
+	data = data_purer
+	file_tag="data-purer"
+	
+	AA.data = data$AA.data
+	SNP.data = data$SNP.data
+	AA.scenarios = data$AA.scenarios
+	SNP.scenarios = data$SNP.scenarios
+	
+	WO_correction = T
+	#W_human_PC = T
+	#W_strain_PC = T
+	#W_both_PC = T
+	W_human_PC = F
+	W_strain_PC = F
+	W_both_PC = F
+	W_both_groups = F
+	W_human_group = F
+	W_strain_group = F
+	W_non_linear_PC = F
+	
+	analyse = "logistic"
+	res_log = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
+	plot_collapsed_G2G(res_log, SNP.scenarios, AA.scenarios, analyse, file_tag)
+	
+	analyse = "skato-L"
+	res_skato = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
+	plot_collapsed_G2G(res_skato, SNP.scenarios, AA.scenarios, analyse, file_tag)
+}
+analyse_G2G()
 
-file_tag="data-purer"
+all_data = list(data_base, data_dstrat_base, data_dstrat_half, data_full, data_half, data_purer)
+all_data = setNames(all_data, c("data_base", "data_dstrat_base", "data_dstrat_half", "data_full", "data_half", "data_purer"))
+analyse_and_plot(all_data,WO_correction = T)
 
-AA.data = data$AA.data
-SNP.data = data$SNP.data
-AA.scenarios = data$AA.scenarios
-SNP.scenarios = data$SNP.scenarios
-rm(data)
-gc()
-
-WO_correction = T
-#W_human_PC = T
-#W_strain_PC = T
-#W_both_PC = T
-W_human_PC = F
-W_strain_PC = F
-W_both_PC = F
-W_both_groups = F
-W_human_group = F
-W_strain_group = F
-W_non_linear_PC = F
-
-analyse = "logistic"
-res_log = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_log, SNP.scenarios, AA.scenarios, analyse, file_tag)
-
-analyse = "skat-LW"
-res_skat_lw = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_skat_lw, SNP.scenarios, AA.scenarios, analyse, file_tag)
-
-analyse = "skat-L"
-res_skat_l = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_skat_l, SNP.scenarios, AA.scenarios, analyse, file_tag)
-
-analyse = "skato"
-res_skato = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_skato, SNP.scenarios, AA.scenarios, analyse, file_tag)
+all_data = list(data_strat_base, data_strat_half)
+all_data = setNames(all_data, c("data_strat_base", "data_strat_half"))
+analyse_and_plot(all_data, WO_correction = T, W_both_groups = T, W_human_group = T, W_strain_group = T)
 
 close_me <-function() {
 	

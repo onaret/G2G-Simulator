@@ -94,25 +94,31 @@ set_env <- function(name, value) {
 	names(args) = name
 	do.call(Sys.setenv, args)}
 
-analyse_G2G <- function(SNP, AA, study_design, SNP.scenarios, AA.scenarios, WO_correction = F, W_human_group = F, W_strain_group = F, W_both_groups = F, W_human_PC = F, W_strain_PC = F, W_both_PC = F, W_non_linear_PC =F, analyse="logistic", nb_cpu) {
-	if(trace == T) print(paste0(Sys.time()," : Computing PC"))
+analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_group = F, W_both_groups = F, W_human_PC = F, W_strain_PC = F, W_both_PC = F, W_non_linear_PC =F, analyse="logistic", nb_cpu) {
+	#SNP.data = data$SNP.data
+	#AA.data = data$AA.data
+	#SNP.scenarios = data$SNP.scenarios
+	#AA.scenarios = data$AA.scenarios
+	#rm(data)
+	attach(data)
 	
-	SNP_PC = if(W_human_PC || W_both_PC == T) {
-		SNP_PC = prcomp(SNP, .scale = F)
+	if(trace) print(paste0(Sys.time()," : Computing PC"))
+	
+	SNP_PC = if(W_human_PC || W_both_PC) {
+		SNP_PC = prcomp(SNP.data, .scale = F)
 		SNP_PC$x[,1:ifelse(ncol(SNP_PC$x)<5, ncol(SNP_PC$x), 5)]}
 	
-	AA_PC = if(W_strain_PC || W_both_PC == T){
-		AA_PC = prcomp(AA, .scale = F)
+	AA_PC = if(W_strain_PC || W_both_PC){
+		AA_PC = prcomp(AA.data, .scale = F)
 		AA_PC$x[,1:ifelse(ncol(AA_PC$x)<5, ncol(AA_PC$x), 5)]}
 	
-	AA_NL_PC = if(W_non_linear_PC == T){
-		AA_NL_PC = homals(AA, ndims = 5)
-		AA_NL_PC_num = homals(AA_df, level = "numerical")
+	AA_NL_PC = if(W_non_linear_PC){
+		AA_NL_PC = homals(AA.data, ndims = 5)
 		matrix(unlist(AA_NL_PC$loadings), nrow = nrow(SNP), ncol = 5)} 
 	
 	save(AA_PC, SNP_PC, file ="PC-savestates.RData")
 	
-	if(trace == T) print(paste(Sys.time(),": Computing ", analyse, "with ",  nb_cpu, " CPU(s)"))
+	if(trace) print(paste(Sys.time(),": Computing ", analyse, "with ",  nb_cpu, " CPU(s)"))
 	ptm <- proc.time()
 	
 	logistic_analyse <- function() {
@@ -120,33 +126,35 @@ analyse_G2G <- function(SNP, AA, study_design, SNP.scenarios, AA.scenarios, WO_c
 		
 		analyse_AA <- function(Y) {
 			Filter(length, list(
-				`Without correction` = if(WO_correction == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X)))[,4][2]),
-				`With human group` = if(W_human_group == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"])))[,4][2]),
-				`With strain group` =  if(W_strain_group == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+study_design[,"Strain"])))[,4][2]),
-				`With both groups` = if(W_both_groups == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"]+study_design[,"Strain"])))[,4][2]),
-				`With human PC` = if(W_human_PC == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+SNP_PC)))[,4][2]),
-				`With strain PC` = if(W_strain_PC == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+AA_PC)))[,4][2]),
-				`With both PC` = if(W_both_PC == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+SNP_PC+AA_PC)))[,4][2]),
-				`With non linear PC` = if(W_non_linear_PC == T) apply(SNP, 2, function(X) coef(summary(glm(Y~X+AA_NL_PC)))[,4][2])))}
+				`Without correction` = if(WO_correction == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X)))[,4][2]),
+				`With human group` = if(W_human_group == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"])))[,4][2]),
+				`With strain group` =  if(W_strain_group == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Strain"])))[,4][2]),
+				`With both groups` = if(W_both_groups == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"]+study_design[,"Strain"])))[,4][2]),
+				`With human PC` = if(W_human_PC == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC)))[,4][2]),
+				`With strain PC` = if(W_strain_PC == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_PC)))[,4][2]),
+				`With both PC` = if(W_both_PC == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+AA_PC)))[,4][2]),
+				`With non linear PC` = if(W_non_linear_PC == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_NL_PC)))[,4][2])))}
 		
-		res = parApply(cl,AA, 2, analyse_AA)
+		res = parApply(cl,AA.data, 2, analyse_AA)
 		#nb_covariates = sum(WO_correction, W_human_group, W_strain_group, W_both_groups, W_human_PC, W_strain_PC, W_both_PC, W_non_linear_PC)
-		SNPcol = rep(1:ncol(SNP), length(res[[1]]))
+		SNPcol = rep(1:ncol(SNP.data), length(res[[1]]))
 		bio_tag_col = rep(unlist(mapply(function(tag, size) rep(tag,size), SNP.scenarios$bio_tag, SNP.scenarios$size)), length(res[[1]]))
-		CorrectionCol = as.factor(rep(names(res[[1]]), each = ncol(SNP)))
+		CorrectionCol = as.factor(rep(names(res[[1]]), each = ncol(SNP.data)))
 		
 		res = do.call(cbind, lapply(names(res), function(aa_id) {
 			do.call(rbind, unname(lapply(res[[aa_id]], function(SNP) {
 				setNames(data.frame(unname(SNP)), aa_id)})))}))
+		detach(data)
 		res = cbind(`SNP` = SNPcol, `Correction` =  CorrectionCol, `Tag` = bio_tag_col, res)}
 	
 	SKAT_analyse <- function() {
 		skat_it = {
-			if(analyse == "skat-LW") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP[,batch], HO, kernel = "linear.weighted")$p.value)
-			else if(analyse  == "skato") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP[,batch], HO, method = "optimal.adj")$p.value)
-			else if(analyse  == "skat-L") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP[,batch], HO, kernel = "linear")$p.value)
+			if(analyse == "skat-LW") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear.weighted")$p.value)
+			else if(analyse  == "skato-LW") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear.weighted", method = "optimal.adj")$p.value)
+			else if(analyse  == "skat-L") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear")$p.value)
+			else if(analyse  == "skato-L") function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear", method = "optimal.adj")$p.value)
 			else stop(paste(analyse, " is incorrect value for analyse parameter"))
-			}
+		}
 		
 		analyse_AA <- function(Y) {
 			Filter(length, list(
@@ -155,7 +163,7 @@ analyse_G2G <- function(SNP, AA, study_design, SNP.scenarios, AA.scenarios, WO_c
 				`With human group` = if(W_human_group == T) skat_it(SKAT_Null_Model(Y ~ study_design[,"Population"], out_type = "D")),
 				`With strain group` =  if(W_strain_group == T) skat_it(SKAT_Null_Model(Y ~ study_design[,"Strain"], out_type = "D")),
 				`With both groups` = if(W_both_groups == T) skat_it(SKAT_Null_Model(Y ~ study_design[,"Population"]+study_design[,"Strain"], out_type = "D")),
-				`With human PC` = if(W_strain_group == T) skat_it(SKAT_Null_Model(Y ~ SNP_PC, out_type = "D")),
+				`With human PC` = if(W_human_PC == T) skat_it(SKAT_Null_Model(Y ~ SNP_PC, out_type = "D")),
 				`With strain PC` = if(W_strain_PC == T) skat_it(SKAT_Null_Model(Y ~ AA_PC, out_type = "D")),
 				`With both PC` = if(W_both_PC == T) skat_it(SKAT_Null_Model(Y ~ AA_PC + SNP_PC, out_type = "D")),
 				`With non linear PC` = if(W_non_linear_PC == T) skat_it(SKAT_Null_Model(Y ~ AA_NL_PC, out_type = "D"))))}
@@ -170,12 +178,12 @@ analyse_G2G <- function(SNP, AA, study_design, SNP.scenarios, AA.scenarios, WO_c
 						else 1}))
 				else S })}
 		
-		#SNP = flip_SNP(SNP)
+		#SNP = flip_SNP(SNP.data)
 		bio_tag_key = unique(SNP.scenarios$bio_tag)
 		SNP_batch = setNames(lapply(bio_tag_key, function(tag) unlist(filter(SNP.scenarios, bio_tag == tag)$id)), bio_tag_key)
-
+		
 		cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
-		res = parApply(cl,AA, 2, analyse_AA) 		#res = apply(AA, 2, analyse_AA)
+		res = parApply(cl,AA.data, 2, analyse_AA) 		#res = apply(AA, 2, analyse_AA)
 		
 		tag = rep(names(SNP_batch), length(res[[1]]))
 		correction_col = as.factor(rep(names(res[[1]]),  each = length(SNP_batch)))
@@ -183,31 +191,60 @@ analyse_G2G <- function(SNP, AA, study_design, SNP.scenarios, AA.scenarios, WO_c
 			do.call(rbind, lapply(aa, function(correction) {
 				do.call(rbind, lapply(correction, function(SNP_tag) {
 					SNP_tag}))}))})))
-		colnames(res) <- colnames(AA)
+		colnames(res) <- colnames(AA.data)
+		rownames(res) <- NULL
+		res = as.data.frame(cbind(`Tag` = tag, `Correction` = correction_col, res))}
+	
+	GT_analyse <- function() {
+		
+		analyse_AA <- function(Y) {
+			Filter(length, list(
+				##Add  data=study_design ?
+				`Without correction` = if(WO_correction == T)	lapply(SNP_batch, function(batch) as.numeric(result(gt(Y, SNP.data[,batch]))["p-value"])),
+				`With human group` = if(W_human_group == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ study_design[,"Population"], SNP.data[,batch]))["p-value"])),
+				`With strain group` =  if(W_strain_group == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ study_design[,"Strain"], SNP.data[,batch]))["p-value"])),
+				`With both groups` = if(W_both_groups == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ study_design[,"Population"]+study_design[,"Strain"], SNP.data[,batch]))["p-value"])),
+				`With human PC` = if(W_human_PC == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ SNP_PC, SNP.data[,batch]))["p-value"])),
+				`With strain PC` = if(W_strain_PC == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ AA_PC, SNP.data[,batch]))["p-value"])),
+				`With both PC` = if(W_both_PC == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ SNP_PC + AA_PC, SNP.data[,batch]))["p-value"])),
+				`With non linear PC` = if(W_non_linear_PC == T) lapply(SNP_batch, function(batch) as.numeric(result(gt(Y + AA_NL_PC, SNP.data[,batch]))["p-value"]))))}
+		
+		bio_tag_key = unique(SNP.scenarios$bio_tag)
+		SNP_batch = setNames(lapply(bio_tag_key, function(tag) unlist(filter(SNP.scenarios, bio_tag == tag)$id)), bio_tag_key)
+		
+		cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
+		res = parApply(cl,AA.data, 2, analyse_AA) 		#res = apply(AA, 2, analyse_AA)
+		
+		tag = rep(names(SNP_batch), length(res[[1]]))
+		correction_col = as.factor(rep(names(res[[1]]),  each = length(SNP_batch)))
+		res = as.data.frame(do.call(cbind,lapply(res, function(aa) {
+			do.call(rbind, lapply(aa, function(correction) {
+				do.call(rbind, lapply(correction, function(SNP_tag) {
+					SNP_tag}))}))})))
+		colnames(res) <- colnames(AA.data)
 		rownames(res) <- NULL
 		res = as.data.frame(cbind(`Tag` = tag, `Correction` = correction_col, res))}
 	
 	res = {if(analyse == "logistic") logistic_analyse()
-		else SKAT_analyse()}
-	save(AA_PC, SNP_PC, res, AA,SNP, AA.scenarios, SNP.scenarios, AA, SNP, file ="res-savestates.RData")
-	if(trace == T) print(paste(Sys.time(),": Analysis took ", (proc.time() - ptm)["elapsed"]/60, "minutes"))
+		else if(grepl("skat", analyse) ) SKAT_analyse()
+		else if (analyse == "gt") GT_analyse()}
+	#save(AA_PC, SNP_PC, res, AA.data,SNP.data, AA.scenarios, SNP.scenarios, file ="res-savestates.RData")
+	if(trace) print(paste(Sys.time(),": Analysis took ", (proc.time() - ptm)["elapsed"]/60, "minutes"))
+	detach(data)
 	res}
 
 plot_collapsed_G2G <- function(res, SNP.scenarios, AA.scenarios, analyse, file_tag="") {
 	
 	if(analyse == "logistic") {
 		threshold = 0.05/((ncol(res)-3)*(nrow(res)/length(levels(res$Correction))))
-		res = res %>% gather(AA, pvalue, -SNP, -Correction, -Tag)
+		res = res %>% gather(AA, pvalue, -SNP, -Correction, -Tag, convert = T)
 		res$pvalue = -log10(res$pvalue)
-		res$AA = as.numeric(res$AA)
 		
 		association_table =	as.data.frame(do.call(rbind, mapply(function(AA, SNP){
 			if(!is.null(unlist(SNP))) {
-				do.call(rbind, lapply(unlist(AA), function(aa){
-					do.call(rbind, lapply(unlist(SNP), function(snp){c(snp, aa)}))}))}},
+				do.call(rbind, lapply(unlist(AA), function(AA){
+					do.call(rbind, lapply(unlist(SNP), function(SNP){data.frame(SNP, AA, `associated` = T)}))}))}},
 			AA.scenarios$id, AA.scenarios$associated_SNPs)))
-		colnames(association_table) <- c("SNP", "AA")
-		association_table$associated <- T
 		
 		res = right_join(as.data.frame(association_table), res, by = c("SNP", "AA"))
 		res$associated[is.na(res$associated)] <- F
@@ -218,27 +255,23 @@ plot_collapsed_G2G <- function(res, SNP.scenarios, AA.scenarios, analyse, file_t
 			
 			p <- ggplot(rt, aes(SNP, pvalue, shape=associated))
 			p + geom_point(aes(color=Tag)) + geom_hline(yintercept = -log10(threshold)) + labs(title = correction, x = "SNP")+
-				theme(axis.text = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
-				scale_y_continuous(limits = c(0, 15))
+				theme(axis.text = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36))# +
+			#scale_y_continuous(limits = c(0, 15))
 			ggsave(filename = paste0(getwd(), "/../gen-data/",file_tag,"-",analyse, "-",correction,".png"), width = 20, height = 14)})}
 	
-	else if(analyse == "skat-L" | analyse == "skato"| analyse == "skat-LW") {
-		res_ori = res ##TOKILL
+	else if(analyse == "skat-L" | analyse == "skato-L"|analyse == "skato-LW"| analyse == "skat-LW" | analyse == "gt") {
 		threshold = 0.05/((ncol(res)-2)*(nrow(res)/length(levels(res$Correction))))
-		res = res %>% gather(AA, pvalue, -Tag, -Correction)
+		res = res %>% gather(AA, pvalue, -Tag, -Correction, convert = T)
 		res$pvalue = -log10(res$pvalue)
-		res$AA = as.numeric(res$AA)
 		
 		association_table = as.data.frame(do.call(rbind, 
-			mapply(function(AA_id, associated_SNP_tag){
-				if(!is.null(unlist(associated_SNP_tag))) {
-					do.call(rbind, lapply(unlist(AA_id), function(aa_id){
-						do.call(rbind, lapply(unlist(associated_SNP_tag), function(SNP_tag){ data.frame("Tag" = SNP_tag, "AA" = aa_id)}))}))}},
-				AA.scenarios$id, AA.scenarios$associated_SNP_tag)))
+																							mapply(function(AA_id, associated_SNP_tag){
+																								if(!is.null(unlist(associated_SNP_tag))) {
+																									do.call(rbind, lapply(unlist(AA_id), function(AA){
+																										do.call(rbind, lapply(unlist(associated_SNP_tag), function(Tag){ data.frame(`Tag` = factor(Tag, levels = levels(res$Tag)), AA, `associated` = T)}))}))}},
+																								AA.scenarios$id, AA.scenarios$associated_SNP_tag)))
 		
-		association_table$associated <- T
-		levels(association_table$Tag) <- levels(res$Tag)
-		res = right_join(as.data.frame(association_table), res, by = c("Tag", "AA"))
+		res = right_join(association_table, res, by = c("Tag", "AA"))
 		res$associated[is.na(res$associated)] <- F
 		
 		lapply(levels(res$Correction), function(correction) {
@@ -247,8 +280,8 @@ plot_collapsed_G2G <- function(res, SNP.scenarios, AA.scenarios, analyse, file_t
 			
 			p <- ggplot(rt, aes(Tag, pvalue, color=associated))
 			p + geom_point() + scale_colour_manual(values =c("black", "red")) + geom_hline(yintercept = -log10(threshold)) + labs(title = correction, x = "SNP")+
-				theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
-				scale_y_continuous(limits = c(0, 15))
+				theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) #+
+			#scale_y_continuous(limits = c(0, 15))
 			ggsave(filename = paste0(getwd(), "/../gen-data/",file_tag,"-",analyse, "-",correction,".png"), width = 20, height = 14)})}}
 
 plot_G2G_by_tag <- function(res, associations, AA.scenarios, SNP.scenarios) {
@@ -271,7 +304,7 @@ plot_G2G_by_tag <- function(res, associations, AA.scenarios, SNP.scenarios) {
 			labs(title = paste("pvalue for full model, with corrections:", paste(correction, collapse = " ")), y = "-log10(pval)", x="covariate") + 
 			scale_y_continuous(limits = c(0, 15)) +
 			geom_point(aes(y = pval_ass))
-		if(save == T) ggsave(filename = paste0(getwd(),paste0(correction, collapse = "_"), Sys.time(), ".png"))}
+		if(save) ggsave(filename = paste0(getwd(),paste0(correction, collapse = "_"), Sys.time(), ".png"))}
 	
 	plot_with_correction_no_ass <- function(save = F) {
 		p <- ggplot(res_tidy, aes(AA.tag, colour=SNP.tag, pvalue, fill=Correction))
@@ -279,4 +312,13 @@ plot_G2G_by_tag <- function(res, associations, AA.scenarios, SNP.scenarios) {
 			geom_hline(yintercept = -log10(threshold), colour="red") + 
 			labs(title = paste("pvalue for full model, with corrections:", paste("", collapse = " ")), y = "-log10(pval)", x="Scenario") + 
 			scale_y_continuous(limits = c(0, 15))
-		if(save == T) ggsave(filename = paste0(getwd(),paste0(collapse = "_"), Sys.time(), ".png"))}}
+		if(save) ggsave(filename = paste0(getwd(),paste0(collapse = "_"), Sys.time(), ".png"))}}
+
+analyse_and_plot <- function(all_data, WO_correction=F,W_human_group=F,W_strain_group=F,W_both_groups=F,W_human_PC=F,W_strain_PC=F,W_both_PC=F,W_non_linear_PC=F) {
+	mapply(function(data, file_tag) {
+		analyse = c("logistic", "skat-LW", "skat-L", "skato-LW", "skato-L", "gt")
+		lapply(analyse, function(analyse) {
+			res = analyse_G2G(data, WO_correction, W_human_group, W_strain_group, W_both_groups, W_human_PC, W_strain_PC, W_both_PC, W_non_linear_PC, analyse, nb_cpu)
+			plot_collapsed_G2G(res, data$SNP.scenarios, data$AA.scenarios, analyse, file_tag)	})
+		
+	}, all_data, names(all_data), SIMPLIFY = F)}
