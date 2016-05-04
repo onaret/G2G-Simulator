@@ -95,11 +95,6 @@ set_env <- function(name, value) {
 	do.call(Sys.setenv, args)}
 
 analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_group = F, W_both_groups = F, W_human_PC = F, W_strain_PC = F, W_both_PC = F, W_non_linear_PC =F, analyse="logistic", nb_cpu) {
-	#SNP.data = data$SNP.data
-	#AA.data = data$AA.data
-	#SNP.scenarios = data$SNP.scenarios
-	#AA.scenarios = data$AA.scenarios
-	#rm(data)
 	attach(data)
 	
 	if(trace) print(paste0(Sys.time()," : Computing PC"))
@@ -122,7 +117,6 @@ analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_gro
 	ptm <- proc.time()
 	
 	logistic_analyse <- function() {
-		cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
 		
 		analyse_AA <- function(Y) {
 			Filter(length, list(
@@ -135,8 +129,10 @@ analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_gro
 				`With both PC` = if(W_both_PC == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+AA_PC)))[,4][2]),
 				`With non linear PC` = if(W_non_linear_PC == T) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_NL_PC)))[,4][2])))}
 		
+		cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
 		res = parApply(cl,AA.data, 2, analyse_AA)
-		#nb_covariates = sum(WO_correction, W_human_group, W_strain_group, W_both_groups, W_human_PC, W_strain_PC, W_both_PC, W_non_linear_PC)
+		stopCluster(cl)
+		
 		SNPcol = rep(1:ncol(SNP.data), length(res[[1]]))
 		bio_tag_col = rep(unlist(mapply(function(tag, size) rep(tag,size), SNP.scenarios$bio_tag, SNP.scenarios$size)), length(res[[1]]))
 		CorrectionCol = as.factor(rep(names(res[[1]]), each = ncol(SNP.data)))
@@ -144,7 +140,6 @@ analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_gro
 		res = do.call(cbind, lapply(names(res), function(aa_id) {
 			do.call(rbind, unname(lapply(res[[aa_id]], function(SNP) {
 				setNames(data.frame(unname(SNP)), aa_id)})))}))
-		detach(data)
 		res = cbind(`SNP` = SNPcol, `Correction` =  CorrectionCol, `Tag` = bio_tag_col, res)}
 	
 	SKAT_analyse <- function() {
@@ -184,6 +179,7 @@ analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_gro
 		
 		cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
 		res = parApply(cl,AA.data, 2, analyse_AA) 		#res = apply(AA, 2, analyse_AA)
+		stopCluster(cl)
 		
 		tag = rep(names(SNP_batch), length(res[[1]]))
 		correction_col = as.factor(rep(names(res[[1]]),  each = length(SNP_batch)))
@@ -214,6 +210,7 @@ analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_gro
 		
 		cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
 		res = parApply(cl,AA.data, 2, analyse_AA) 		#res = apply(AA, 2, analyse_AA)
+		stopCluster(cl)
 		
 		tag = rep(names(SNP_batch), length(res[[1]]))
 		correction_col = as.factor(rep(names(res[[1]]),  each = length(SNP_batch)))
