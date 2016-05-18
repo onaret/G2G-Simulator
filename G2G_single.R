@@ -28,18 +28,25 @@ test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bia
 	tag = paste(scenario_name, tag_me(fst_pop_strat), tag_me(fst_pop_bias), tag_me(fst_strain_strat), tag_me(fst_strain_bias), "beta",scenario$beta, nrow(study_design), sep = "_")
 	print(paste0(Sys.time(), " : Scenario ",tag))
 	SNP = get_SNP(study_design, data_frame(`size` = scenario$rep, `Stratified` = scenario$S_Stratified, `Partial_Stratification` = scenario$S_Partial_Stratification, `fst_strat` = fst_pop_strat, `Biased`= scenario$S_Biased, `Partial_Bias`= scenario$S_Partial_Bias,`fst_bias` = fst_pop_bias))
-	#AA = get_AA(study_design, data_frame(`size` = scenario$rep, `Stratified` = scenario$Y_Stratified, `Partial_Stratification` = scenario$Y_Partial_Stratification, `fst_strat` = fst_strain_strat, `Biased`= scenario$Y_Biased, `Partial_Bias`= scenario$Y_Partial_Bias, `fst_bias` = fst_strain_bias,
-	#						`Associated_Strains`=scenario$Associated_Strains, `Associated_Populations`= scenario$Associated_Populations, beta=scenario$beta), SNP)
-	
 	AA = apply(SNP, 2, function(snp.data) {
 		get_AA(study_design, data_frame(`size` = 1, `Stratified` = scenario$Y_Stratified, `Partial_Stratification` = scenario$Y_Partial_Stratification, `fst_strat` = fst_strain_strat, `Biased`= scenario$Y_Biased, `Partial_Bias`= scenario$Y_Partial_Bias, `fst_bias` = fst_strain_bias,
-																		`Associated_Strains`=scenario$Associated_Strains, `Associated_Populations`= scenario$Associated_Populations, beta=scenario$beta), associated_SNPs = as.matrix(snp.data))
-	})
+																		`Associated_Strains`=scenario$Associated_Strains, `Associated_Populations`= scenario$Associated_Populations, beta=scenario$beta), associated_SNPs = as.matrix(snp.data), generate_AAs = get_viral)})
 	
 	threshold <<- 0.05/(ncol(SNP+ncol(AA)))
 	pvalues = analyse_G2G_setup(SNP, AA, study_design)
+	
+	
+	df = as.data.frame(t(do.call(rbind, lapply(pvalues, function(cor) cor$pval))))
+	st =list(
+		t.test(x = df[,"WO_correction"], y = df[,"W_human_groups"]),
+		t.test(x = df[,"WO_correction"], y = df[,"W_strains_groups"]),
+		t.test(x = df[,"WO_correction"], y = df[,"W_both_groups"]),
+		t.test(x = df[,"W_both_groups"], y = df[,"W_strains_groups"]),
+		t.test(x = df[,"W_both_groups"], y = df[,"W_human_groups"]))
+	
+	st = do.call(rbind, lapply(st, function(st) data.frame(st$data.name, st$p.value)))
 	#summary_sim = summary_sim(pvalues, AA$AA.scenario)
-	res = list(`study_design` = study_design, `pvalues` = pvalues, `scenario` = scenario) #, `params` = cbind(SNP$SNP.params, AA$AA.params)
+	res = list(`study_design` = study_design, `pvalues` = pvalues, `scenario` = scenario, `student`= st) #, `params` = cbind(SNP$SNP.params, AA$AA.params)
 	write_G2G_setup(res, tag, paste0(getwd(),"/../gen-data/",scenario_name,"/" ))
 	res}
 
@@ -61,7 +68,7 @@ analyse_G2G_setup <- function(SNPs, Y, study_design) {
 	parse_pvalues(data.frame(WO_correction, W_human_groups, W_strains_groups, W_both_groups, row.names = colnames(SNPs)), threshold)}
 
 ###@G2SR : G2G setup results
-plot_G2G_setup <- function(G2SR, save = FALSE, out = TRUE, file = Sys.time()) {
+plot_G2G_setup <- function(G2SR, save = FALSE, out = TRUE, lim = 15, file = Sys.time()) {
 	if(trace == TRUE) ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting plots", sep=" : "))) 
 	G2GSR = -log10(select(as.data.frame(G2SR$pvalues), ends_with("pval")))
 	G2GSRD = select(as.data.frame(G2SR$pvalues), ends_with("pval_diff"))
@@ -75,12 +82,19 @@ plot_G2G_setup <- function(G2SR, save = FALSE, out = TRUE, file = Sys.time()) {
 			# scale y limits based on ylim1
 			p + coord_cartesian(ylim = ylim1*1.05)
 		} else p
-		p + geom_boxplot(outlier.color = "grey", aes(fill=variable)) + geom_hline(yintercept = -log10(threshold), colour="red") + 
+		p + geom_boxplot(outlier.color = "grey", aes(fill=variable)) + #geom_hline(yintercept = -log10(threshold), colour="red") + 
 			labs(title = paste(name, "pvalues with different covariates"), y = "-log10(pval)", x="covariate") + 
-			theme(axis.text.x=element_blank(), axis.text.y = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36))# + 
-		#if(!is.null(lim)) scale_y_continuous(limits = lim) +
+			theme(axis.text.x=element_blank(), axis.text.y = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) # +
 		#guides(fill=FALSE)
 		if(save == TRUE) ggsave(filename = paste0(file,name,".png"), width = 14, height = 18)
+		p <- ggplot(res, aes(variable, value))
+		p + geom_boxplot(outlier.color = "grey", aes(fill=variable)) +
+			labs(title = paste(name, "pvalues with different covariates"), y = "-log10(pval)", x="covariate") + 
+			coord_cartesian(ylim = c(0, lim)) +
+			theme(axis.text.x=element_blank(), axis.text.y = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36))
+		if(save == TRUE) ggsave(filename = paste0(file,name,"lim-",lim,".png"), width = 14, height = 18)
+		
+		
 	}, list(G2GSR, G2GSRD), c("G2GR", "G2GRD"))}
 
 write_G2G_setup <- function(res, tag = NULL, output_dir = paste0(getwd(), "/")) {
@@ -89,6 +103,7 @@ write_G2G_setup <- function(res, tag = NULL, output_dir = paste0(getwd(), "/")) 
 	plot_GWAS(res$pvalues, save = TRUE, file = paste0(output_dir, "-plots-(", end, ")"))
 	plot_G2G_setup(res, out = TRUE, save = TRUE, file = paste0(output_dir, tag, "-boxplots_out-(", end, ")"))
 	plot_G2G_setup(res, out = FALSE, save = TRUE, file = paste0(output_dir, tag, "-boxplots-(", end, ")"))
+	write.table(x = res$student, file = paste0(output_dir, tag, "-students-(", end, ").csv"))
 	#res$SNP_params[,"Associated_Populations"] = vapply(res$SNP_params[,"Associated_Populations"], paste, collapse = ", ", character(1L))
 	#res$SNP_params[,"Associated_Strains"] = vapply(res$SNP_params[,"Associated_Strains"], paste, collapse = ", ", character(1L))
 	#write.table(x = cbind(res$SNP_params,res$pvalues), file = paste0(output_dir, tag, "-SNP_params-pvals-(", end, ").csv"))

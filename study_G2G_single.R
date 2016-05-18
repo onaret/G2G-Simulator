@@ -1,570 +1,325 @@
 #rm(list = ls())
-#cat("\014")
+cat("\014")  
 #library(rjson)
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(parallel)
-library(SKAT)
 
 source("G2G_full.R")
 source("G2G_single.R")
-#source("GWAS.R")
-#source("summarize.R")
+source("GWAS.R")
 trace <- TRUE
 
-study_design = get_study_design(sample_size = 5000,
-																nb_strain = 2,
-																nb_pop = 2)
-nb_cpu = 30
-mixstrat = c(0.2)
-mixbeta = c(0.3)
-
-##Biotag fs2_ss2
-
-data_exp = parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(1),
-			SNP(5, stratified = "full", fst_strat = mixstrat),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.25))),
-		AA(7),
-		SNP(44),
-		bio_tag = "fs2_ss1",
-		replicate = 5))
-
-
-data_full = parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(45),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.1))),
-		AA(7),
-		bio_tag = "fs2_ss1",
-		replicate = 20))
-
-data_half = parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(20),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.25))),
-		SNP(25),
-		AA(7),
-		bio_tag = "fs2_ss1",
-		replicate = 5))
-
-data_base =	parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(5),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.25))),
-		SNP(42),
-		AA(7),
-		bio_tag = "fs2_ss1",
-		replicate = 5))
-
-data_base =	parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(5, stratified = "full", fst_strat = mixstrat),
-			AA(
-				1,
-				stratified = "full",
-				fst_strat = mixstrat,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = mixbeta)),
-		SNP(1, stratified = "full", fst_strat = mixstrat),
-		SNP(42),
-		AA(1, stratified = "full", fst_strat = mixstrat),
-		AA(7),
-		bio_tag = "fs2_ss1",
-		replicate = 1))
-
-data_imp = 	 
-	parse_G2G_config(
-		study_design,
-		G2G_conf(
-			association(
-				SNP(5, stratified = "full", fst_strat = mixstrat),
-				AA(
-					1,
-					stratified = "full",
-					fst_strat = mixstrat,
-					associated_strains = "full",
-					associated_populations = "full",
-					beta = mixbeta
-				)
-			),
-			
-			SNP(1, stratified = "full", fst_strat = mixstrat),
-			SNP(42),
-			AA(1, stratified = "full", fst_strat = mixstrat),
-			AA(7),
-			bio_tag = "fs2_ss1",
-			replicate = 5
-		),
-		G2G_conf(
-			association(
-				SNP(5, stratified = "full", fst_strat = mixstrat),
-				AA(
-					1,
-					stratified = "full",
-					fst_strat = mixstrat,
-					associated_strains = "full",
-					associated_populations = "full",
-					beta = mixbeta
-				)
-			),
-			
-			SNP(1, stratified = "full", fst_strat = mixstrat),
-			SNP(42),
-			AA(1, stratified = "full", fst_strat = mixstrat),
-			AA(7),
-			bio_tag = "fs2_ss_bis",
-			replicate = 5
-		)
-	)
-
-
-
-data = {
-	##Big Neutral
-	if (TRUE) {
-		parse_G2G_config(study_design,
-										 ###Generic stratification pattern
-										 G2G_conf(AA(650), bio_tag = c('min' = 5, 'max' = 20)),
-										 G2G_conf(SNP(10000), bio_tag = c('min' = 30, 'max' = 60)))
-	}
+####Different stratification scenarios
+if(FALSE) {
+	repnb = 1000
+	study_design_5000 = get_study_design(5000,2,2)
+	study_design_10000 = get_study_design(10000,2,2)
 	
-	##Association min
-	else if (FALSE) {
-		parse_G2G_config(
-			study_design,
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "full",
-						associated_populations = "full",
-						beta = 0.5
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs2_ss1",
-				replicate = 1
-			)
-		)
-	}
+	########C1
 	
-	##Association
-	else if (FALSE) {
-		parse_G2G_config(
-			study_design,
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "full",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs2_ss1",
-				replicate = 5
-			)
-		)
-	}
+	###CORRECTED C1
+	c1 =  get_G2G_setup(1000, s_stratified = c("P1","P2"), s_biased = c("A","B"), s_partial_bias = "P1", y_stratified = c("A","B"), y_biased = c("P1","P2"), y_partial_strat = "P1")
+	res = test_G2G_setup(study_design, c1, fst_pop_strat = 0.2, fst_pop_bias = 0.02, fst_strain_strat = 0.02, fst_strain_bias = 0.2)
+	#######
 	
-	else if (FALSE) {
-		parse_G2G_config(
-			study_design,
-			###Generic stratification pattern
-			G2G_conf(
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				bio_tag = "contain_strat_SNP",
-				replicate = 250
-			),
-			
-			#      G2G_conf(SNP(10000), bio_tag = c('min'=30, 'max'=60)),
-			G2G_conf(SNP(42), bio_tag = "homogenous_tag", replicate = 238),
-			
-			G2G_conf(
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(8),
-				bio_tag = "contain_strat_AA",
-				replicate = 50
-			),
-			
-			#      G2G_conf(AA(650), bio_tag = c('min'=5, 'max'=20)),
-			G2G_conf(AA(8), bio_tag = "homogenous_tag", replicate = 81),
-			
-			##C1 biotag
-			G2G_conf(
-				SNP(
-					1,
-					biased = "full",
-					partial_bias = "P1",
-					fst_bias = mixstrat
-				),
-				SNP(42),
-				AA(
-					1,
-					stratified = "full",
-					fst_strat = mixstrat,
-					partial_bias = "P1",
-					fst_bias = mixstrat
-				),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "C1",
-				replicate = 5
-			),
-			
-			##FS1 biotag
-			G2G_conf(
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, biased = "full", fst_bias = mixstrat),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "FS1",
-				replicate = 5
-			),
-			
-			##SC1 biotag
-			G2G_conf(
-				SNP(
-					1,
-					stratified = c("P1", "P2"),
-					fst_strat = mixstrat
-				),
-				SNP(42),
-				AA(
-					1,
-					stratified = c("A", "B"),
-					fst_strat = mixstrat,
-					biased = c("P1", "P2"),
-					fst_bias = mixstrat
-				),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "SC1",
-				replicate = 5
-			),
-			
-			##FS2_SS1
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "full",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs2_ss1",
-				replicate = 5
-			),
-			
-			##FS2_SS1_T1
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						2,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "full",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs2_ss1_t1",
-				replicate = 5
-			),
-			
-			###fs2_ss1_t2
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						3,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "full",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs2_ss1_t2",
-				replicate = 5
-			),
-			
-			##Biotag fs2_ss2
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "full",
-						associated_populations = "half",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs2_ss2",
-				replicate = 5
-			),
-			
-			##BiotagFS3_SS3
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						stratified = "full",
-						fst_strat = mixstrat,
-						associated_strains = "half",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs3_ss3",
-				replicate = 5
-			),
-			
-			##BiotagFS4
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						biased = "full",
-						fst_bias = mixstrat,
-						associated_strains = "half",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "fs4",
-				replicate = 5
-			),
-			
-			##BiotagSS4
-			G2G_conf(
-				association(
-					SNP(5, stratified = "full", fst_strat = mixstrat),
-					AA(
-						1,
-						associated_strains = "half",
-						associated_populations = "half",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "ss4",
-				replicate = 5
-			),
-			
-			##BiotagSC1B
-			G2G_conf(
-				association(
-					SNP(
-						5,
-						stratified = c("P1", "P2"),
-						fst_strat = mixstrat
-					),
-					AA(
-						1,
-						stratified = c("A", "B"),
-						fst_strat = mixstrat,
-						biased = c("P1", "P2"),
-						fst_bias = mixstrat,
-						associated_strains = "A",
-						associated_populations = "full",
-						beta = mixbeta
-					)
-				),
-				SNP(1, stratified = "full", fst_strat = mixstrat),
-				SNP(42),
-				AA(1, stratified = "full", fst_strat = mixstrat),
-				AA(7),
-				bio_tag = "SC1b",
-				replicate = 5
-			)
-		)
-	}
+	###TOFIX : Limite case, will make error
+	c1 =  get_G2G_setup(1000, s_stratified = c("P1","P2"), s_biased = c("A","B"), s_partial_bias = "P1", y_stratified = c("A","B"), y_partial_strat = "P1")
+	##########
+	c1 =  get_G2G_setup(100, s_biased = c("A","B"), s_partial_bias = "P1", y_stratified = c("A","B"), y_partial_strat = "P1")
+	res = test_G2G_setup(study_design_5000, c1, fst_pop_bias = 0.03, fst_strain_strat = 0.2)
+	
+	c1 =  get_G2G_setup(10, s_stratified = c("P1"," P2"), s_biased = c("A","B"), s_partial_bias = "P1", y_stratified = c("A","B"), y_partial_strat = "P1", y_biased = c("P1","P2"))
+	res = test_G2G_setup(study_design_5000, c1, fst_pop_strat = 0.03, fst_pop_bias = 0.03, fst_strain_strat = 0.2, fst_strain_bias = 0.2)
+	
+	c1_eq = get_G2G_setup(repnb,s_biased = c("A","B"), s_partial_bias = "P1", y_stratified = c("A","B"), y_partial_strat = "P1")
+	res = test_G2G_setup(study_design_5000, c1_eq, fst_pop_bias = 0.2, fst_strain_strat = 0.2)
+	
+	c1_without_human_bias = get_G2G_setup(repnb, s_stratified = c("P1"," P2"), y_stratified = c("A","B"), y_partial_strat = "P1")
+	res = test_G2G_setup(study_design_5000, c1_without_human_bias, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+	
+	c1_with_full_bias_full_strat = get_G2G_setup(repnb, s_stratified =  c("P1"," P2"), s_biased = c("A","B"), y_stratified = c("A","B"), y_biased =  c("P1"," P2"))
+	res = test_G2G_setup(study_design_5000, c1_with_full_bias_full_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.03, fst_pop_bias = 0.03)
+	
+	c1_with_full_bias_full_strat_eq = get_G2G_setup(repnb, s_stratified =  c("P1"," P2"), s_biased =c("A","B"), y_stratified = c("A","B"), y_biased =  c("P1"," P2"))
+	res = test_G2G_setup(study_design_5000, c1_with_full_bias_full_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.2, fst_pop_bias = 0.2)
+	
+	
+	########FS1
+	fs1 = get_G2G_setup(repnb, s_stratified = c("P1", "P2"), y_biased = c("P1", "P2"))
+	res = test_G2G_setup(study_design_5000, fs1, fst_pop_strat = 0.2, fst_strain_bias = 0.02)
+	
+	fs1_full_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full")
+	res = test_G2G_setup(study_design_5000, fs1_full_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+	
+	######fs2_ss1 
+	fs2_ss1 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "full", associated_populations = "full",beta = 0.1)
+	res = test_G2G_setup(study_design_5000, fs2_ss1, fst_pop_strat = 0.2, tag = "beta_0.1")
+	fs2_ss1 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "full", associated_populations = "full",beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs2_ss1, fst_pop_strat = 0.2, tag = "beta_0.5")
+	fs2_ss1 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "full", associated_populations = "full",beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs2_ss1, fst_pop_strat = 0.2, tag = "beta_0.25")
+	
+	fs2_ss1_without_strat = get_G2G_setup(repnb, associated_strains = "full", associated_populations = "full", beta = 0.1)
+	res = test_G2G_setup(study_design_5000, fs2_ss1_without_strat, tag = "beta_0.1")
+	fs2_ss1_without_strat = get_G2G_setup(repnb, associated_strains = "full", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs2_ss1_without_strat, tag = "beta_0.5")
+	fs2_ss1_without_strat = get_G2G_setup(repnb, associated_strains = "full", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs2_ss1_without_strat, tag = "beta_0.25")
+	######
+	
+	
+	######ss2
+	ss2 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "full", associated_populations = "P1", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, ss2, fst_pop_strat = 0.2, tag = "sample_size_5000")
+	res = test_G2G_setup(study_design_10000, ss2, fst_pop_strat = 0.2, tag = "sample_size_10000")
+	
+	ss2_with_vir_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "full", associated_populations = "half", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, ss2_with_vir_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_5000")
+	res = test_G2G_setup(study_design_10000, ss2_with_vir_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_10000")
+	
+	ss2_with_vir_strat_asymetric = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "full", associated_populations = "P1", beta = 0.25)
+	res = test_G2G_setup(study_design_10000, ss2_with_vir_strat_asymetric, fst_pop_strat = 0.2, fst_strain_strat = 0.05)
+	
+	
+	ss2_with_vir_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "full", associated_populations = "half", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, ss2_with_vir_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000")
+	res = test_G2G_setup(study_design_10000, ss2_with_vir_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000")
+	
+	ss2_with_vir_strat_asymetric_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "full", associated_populations = "P1", beta = 0.25)
+	res = test_G2G_setup(study_design_10000, ss2_with_vir_strat_asymetric_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+	
+	
+	####fs3_ss3
+	fs3_ss3 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "half", associated_populations = "full", beta = 0.25)
+	
+	res = test_G2G_setup(study_design_5000, fs3_ss3, fst_pop_strat = 0.2, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, fs3_ss3, fst_pop_strat = 0.2, tag = "sample_size_10000_beta_5")
+	fs3_ss3 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "half", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs3_ss3, fst_pop_strat = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, fs3_ss3, fst_pop_strat = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	
+	fs3_ss3_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs3_ss3_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_5000")
+	res = test_G2G_setup(study_design_10000, fs3_ss3_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_10000")
+	
+	fs3_ss3_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs3_ss3_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, fs3_ss3_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_10000_beta_0.5")
+	
+	fs3_ss3_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs3_ss3_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000")
+	res = test_G2G_setup(study_design_10000, fs3_ss3_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000")
+	
+	fs3_ss3_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs3_ss3_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, fs3_ss3_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	
+	#####fs4
+	fs4 = get_G2G_setup(repnb, s_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs4, fst_pop_strat = 0.2, fst_strain_bias = 0.2, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, fs4, fst_pop_strat = 0.2, fst_strain_bias = 0.2, tag = "sample_size_10000_beta_0.25")
+	
+	fs4 = get_G2G_setup(repnb, s_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs4, fst_pop_strat = 0.2, fst_strain_bias = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, fs4, fst_pop_strat = 0.2, fst_strain_bias = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	fs4_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs4_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, fst_strain_bias = 0.05, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, fs4_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, fst_strain_bias = 0.05, tag = "sample_size_10000_beta_0.25")
+	
+	fs4_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs4_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, fst_strain_bias = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, fs4_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, fst_strain_bias = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	fs4_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, fs4_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.05, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, fs4_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.05, tag = "sample_size_10000_beta_0.25")
+	
+	fs4_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, fs4_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, fs4_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	
+	####fs4 unbiased
+	#fs4_unbiased = get_G2G_setup(repnb, s_stratified = "full",y_biased = "full", associated_strains = "half", associated_populations = "full", Ordered_Bias = FALSE)
+	
+	#res = test_G2G_setup(study_design_5000, fs4_unbiased, fst_pop_strat = 0.2, fst_strain_bias = 0.2, beta = 0.25)
+	#res = test_G2G_setup(study_design_10000, fs4_unbiased, fst_pop_strat = 0.2, fst_strain_bias = 0.2, beta = 0.25)
+	
+	####ss4
+	ss4 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "half", associated_populations = "half", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, ss4, fst_pop_strat = 0.2, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, ss4, fst_pop_strat = 0.2, tag = "sample_size_10000_beta_0.25")
+	
+	ss4 = get_G2G_setup(repnb, s_stratified = "full", associated_strains = "half", associated_populations = "half", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, ss4, fst_pop_strat = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, ss4, fst_pop_strat = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	ss4_with_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "half", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, ss4_with_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, ss4_with_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_10000_beta_0.25")
+	
+	ss4_with_strat = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "half", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, ss4_with_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, ss4_with_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.05, tag = "sample_size_10000_beta_0.5")
+	
+	ss4_with_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "half", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, ss4_with_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_10000, ss4_with_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.25")
+	
+	ss4_with_strat_eq = get_G2G_setup(repnb, s_stratified = "full",y_stratified = "full", associated_strains = "half", associated_populations = "half", beta = 0.5)
+	res = test_G2G_setup(study_design_5000, ss4_with_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_10000, ss4_with_strat_eq, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	######SC1
+	sc1 = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"),y_biased = c("P1","P2"))
+	res = test_G2G_setup(study_design_5000, sc1, fst_pop_strat = 0.2, fst_strain_strat = 0.02, fst_strain_bias = 0.2, tag = "*")
+	#with vir>pop
+	res = test_G2G_setup(study_design_5000, sc1, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.02, tag = "with_vir_pop")
+	
+	res = test_G2G_setup(study_design_5000, sc1, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.2, tag = "_eq")
+	
+	
+	sc1_inv = get_G2G_setup(repnb, s_stratified = "P2", y_stratified = "full",y_biased = "full")
+	res = test_G2G_setup(study_design_5000, sc1_inv, fst_pop_strat = 0.2, fst_strain_strat = 0.02, fst_strain_bias = 0.2, tag = "*")
+	
+	
+	####sc1b
+	sc1b = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"), y_biased = c("P1","P2"),  associated_strains = "A", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_5000, sc1b, fst_pop_strat = 0.2, fst_strain_strat = 0.02, fst_strain_bias = 0.2)
+	res = test_G2G_setup(study_design_5000, sc1b, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.02, tag = "with_vir_pop")
+	res = test_G2G_setup(study_design_5000, sc1b, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.2, tag = "_eq")
+	
+	
+	####sc2
+	study_design_sc2_5000 = to_study_design(as.data.frame(list(`P1` = c(`A` = 1000, `B` = 1500), `P2` = c(`A` = 1000, `B`  = 1500))))
+	study_design_sc2_10000 = to_study_design(as.data.frame(list(`P1` = c(`A` = 2000, `B` = 3000), `P2` = c(`A` = 2000, `B`  = 3000))))
+	
+	sc2 = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"),  associated_strains = "A", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_sc2_5000, sc2, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.25")
+	res = test_G2G_setup(study_design_sc2_10000, sc2, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.25")
+	
+	sc2 = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"),  associated_strains = "A", associated_populations = "full")
+	res = test_G2G_setup(study_design_sc2_5000, sc2, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5")
+	res = test_G2G_setup(study_design_sc2_10000, sc2, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.5")
+	
+	####Demonstration
+	demo_no_kill = get_G2G_setup(repnb, s_stratified = "full")
+	res = test_G2G_setup(study_design_5000, demo_no_kill, fst_pop_strat = 0.2)
+	
+	demo_power_gain3 = get_G2G_setup(repnb, s_stratified = c("P1","P2"), associated_populations = c("P1","P2"))
+	###0.01,0.2
+	res = test_G2G_setup(study_design_5000, demo_power_gain3, fst_pop_strat = 0.2, fst_strain_bias = 0.2,beta = 0.25, get_viral = get_viral_output_sp)
+	
+	####sc2_ret
+	sc2_ret = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"),  associated_strains = "A", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_sc2_5000, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.25", get_viral = get_viral_output_sp3)
+	res = test_G2G_setup(study_design_sc2_10000, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.25", get_viral = get_viral_output_sp3)
+	
+	sc2_ret = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"),  associated_strains = "A", associated_populations = "full", beta = 0.5)
+	res = test_G2G_setup(study_design_sc2_5000, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5", get_viral = get_viral_output_sp3)
+	res = test_G2G_setup(study_design_sc2_10000, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_10000_beta_0.5", get_viral = get_viral_output_sp3)
+	
+	sc2_ret_double_ass = get_G2G_setup(repnb, s_stratified = c("P1","P2"), y_stratified = c("A","B"), associated_strains = "full", associated_populations = "full", beta = 0.25)
+	res = test_G2G_setup(study_design_sc2_5000, sc2_ret_double_ass, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.25", get_viral = get_viral_output_sp3)
+	
+	################Experimenting on parallel
 }
+####NOP
+study_design_Ab = to_study_design(as.data.frame(list(`P1` = c(`A` = 1500, `B` = 1000), `P2` = c(`A` = 1000, `B`  = 1500))))
+c1_cor =  get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"))
+res = test_G2G_setup(study_design_Ab, c1_cor, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
 
-data = data_full
-data = data_half
-data = data_exp
-data = data_base
-data=data_imp
+###imroved 2 
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1, `B`  = 2499))))
+c1_improved_2 = get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"))
+res = test_G2G_setup(study_design, c1_improved_2, fst_pop_strat = 0.2, fst_pop_bias = 0.2, fst_strain_strat = 0.02)
 
-
-AA.data = data$AA.data
-SNP.data = data$SNP.data
-AA.scenarios = data$AA.scenarios
-SNP.scenarios = data$SNP.scenarios
-rm(data)
-gc()
-
-
-WO_correction = T
-#W_human_PC = T
-#W_strain_PC = T
-#W_both_PC = T
-
-W_human_PC = F
-W_strain_PC = F
-W_both_PC = F
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250))))
+c1_improved =  get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"), y_biased = c("P1","P2"), y_partial_strat = "P1")
+res = test_G2G_setup(study_design, c1_improved, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_strain_bias = 0.2)
 
 
-W_both_groups = T
-W_human_group = F
-W_strain_group = F
-W_non_linear_PC = F
-
-analyse = "logistic"
-res_log = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_log, SNP.scenarios, AA.scenarios, analyse, file_tag)
-
-analyse = "skat"
-res_skat = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_skat, SNP.scenarios, AA.scenarios, analyse, file_tag)
-
-analyse = "skato"
-res_skato = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-plot_collapsed_G2G(res_skato, SNP.scenarios, AA.scenarios, analyse, file_tag)
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250))))
+fs2_ss1_cor_cm = get_G2G_setup(1000, s_stratified = "full", associated_strains = "full", associated_populations = "full",beta = 0.25)
+res1 = test_G2G_setup(study_design, fs2_ss1_cor_cm, fst_pop_strat = 0.2, tag = "beta_0.25", get_viral = generate_AAs)
+fs2_ss1_cor2_cm = get_G2G_setup(1000, associated_strains = "full", associated_populations = "full",beta = 0.25)
+res2 = test_G2G_setup(study_design, fs2_ss1_cor2_cm, tag = "beta_0.25", get_viral = generate_AAs)
 
 
 
-close_me <-function() {
-	
-	mapply(function(associated_SNP_nb, no_associated_SNP_nb) {
-		#		print(paste0("Associated : ", associated_SNP_nb))
-		#		associated_SNP_nb <<- associated_SNP_nb
-		#		no_associated_SNP_nb <<- no_associated_SNP_nb
-		data = eval(substitute(parse_G2G_config(
-			study_design,
-			G2G_conf(
-				association(
-					SNP(associated_SNP_nb),
-					AA(
-						1,
-						associated_strains = "full",
-						associated_populations = "full",
-						beta = c(0.1))),
-				AA(10),
-				SNP(no_associated_SNP_nb),
-				bio_tag = "fs2_ss1",
-				replicate = 5),
-			G2G_conf(AA(200), bio_tag = c('min' = 5, 'max' = 20)),
-			G2G_conf(SNP(1000), bio_tag = c('min' = 30, 'max' = 60))
-			
-		), list(`associated_SNP_nb` = associated_SNP_nb, `no_associated_SNP_nb` = no_associated_SNP_nb) ) )
-		
-		AA.data = data$AA.data
-		SNP.data = data$SNP.data
-		AA.scenarios = data$AA.scenarios
-		SNP.scenarios = data$SNP.scenarios
-		rm(data)
-		
-		
-		WO_correction = T
-		W_human_PC = F
-		W_strain_PC = F
-		W_both_PC = F
-		W_both_groups = F
-		W_human_group = F
-		W_strain_group = F
-		W_non_linear_PC = F
-		
-		file_tag = paste("ass_SNP_", associated_SNP_nb)
-		analyse = "logistic"
-		res_log = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-		plot_collapsed_G2G(res_log, SNP.scenarios, AA.scenarios, analyse, file_tag)
-		
-		analyse = "skat"
-		res_skat = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-		plot_collapsed_G2G(res_skat, SNP.scenarios, AA.scenarios, analyse, file_tag)
-		
-		analyse = "skato"
-		res_skato = analyse_G2G(SNP.data, AA.data, study_design, SNP.scenarios, AA.scenarios, WO_correction,W_human_group,W_strain_group,W_both_groups,W_human_PC,W_strain_PC,W_both_PC,W_non_linear_PC,analyse,nb_cpu)
-		plot_collapsed_G2G(res_skato, SNP.scenarios, AA.scenarios, analyse, file_tag)
-	}
-	
-	, c(1,5,10,35,40), rev(c(1,5,10,35,40)))
-	
-	
-}
-close_me()
+####FOR MASTER THESIS
+##Neutral
+study_design_Ab = to_study_design(as.data.frame(list(`P1` = c(`A` = 1500, `B` = 1000), `P2` = c(`A` = 1000, `B`  = 1500))))
+study_design_P1A_P2B = to_study_design(as.data.frame(list(`P1` = c(`A` = 2500, `B` = 1), `P2` = c(`A` = 1, `B`  = 2500))))
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250))))
+
+study_design_P1AB_P2B = to_study_design(as.data.frame(list(`P1` = c(`A` = 2500, `B` = 0), `P2` = c(`A` = 0, `B`  = 2500))))
+fs1_cor = get_G2G_setup(1000, s_stratified = c("P1", "P2"), y_stratified = c("A", "B"))
+res = test_G2G_setup(study_design_P1AB_P2B, fs1_cor, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1500, `B` = 1500), `P2` = c(`A` = 1500, `B`  = 1500))))
+classic_strat =  get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"))
+res = test_G2G_setup(study_design, classic_strat, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1125, `B` = 625), `P2` = c(`A` = 1125, `B`  = 2150))))
+classic_strat_st2 =  get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"))
+res = test_G2G_setup(study_design, classic_strat_st2, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1, `B`  = 2499))))
+c1_ref_cor_2 = get_G2G_setup(1000, s_biased = c("A","B"), s_stratified = c("P1","P2"), s_partial_bias = "P1", y_stratified = c("A","B"), y_partial_strat = "P1")
+res = test_G2G_setup(study_design, c1_ref_cor_2, fst_pop_strat = 0.2, fst_pop_bias = 0.2, fst_strain_strat = 0.02)
+
+##Classic
+
+##Associated
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250))))
+fs2_ss1_cor_cl = get_G2G_setup(1000, s_stratified = "full", associated_strains = "full", associated_populations = "full",beta = 0.25)
+res1 = test_G2G_setup(study_design, fs2_ss1_cor_cl, fst_pop_strat = 0.2, tag = "beta_0.25", get_viral = generate_AAs_classic)
+fs2_ss1_cor2_cl = get_G2G_setup(1000, associated_strains = "full", associated_populations = "full",beta = 0.25)
+res2 = test_G2G_setup(study_design, fs2_ss1_cor2_cl, tag = "beta_0.25", get_viral = generate_AAs_classic)
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 2500, `B` = 0), `P2` = c(`A` = 0, `B`  = 2500))))
+fs2_ss1_cor3_cm = get_G2G_setup(1000, s_stratified = c("P1","P2"), y_bias = c("A","B"), associated_strains = "full", associated_populations = "full",beta = 0.25)
+res2 = test_G2G_setup(study_design, fs2_ss1_cor3_cm, tag = "beta_0.25", fst_pop_strat = 0.2, fst_strain_bias = 0.2, get_viral = generate_AAs)
+
+###
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1500, `B` = 1000), `P2` = c(`A` = 1500, `B`  = 1000))))
+sc2_ret = get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"),  associated_strains = "A", associated_populations = "full", beta = 0.25)
+#res = test_G2G_setup(study_design, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5_power_gain_old_work_ps", get_viral = generate_AAs_power_gain)
+#res = test_G2G_setup(study_design, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5_power_gain_old_do_not_work_ps", get_viral = generate_AAs_power_gain_do_not_works_like_old)
+res = test_G2G_setup(study_design, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "ps", get_viral = generate_AAs_pg_new)
+
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250))))
+sc2_ret = get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"),  associated_strains = "A", associated_populations = "full", beta = 0.25)
+#res = test_G2G_setup(study_design, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5_power_gain_old_work", get_viral = generate_AAs_power_gain)
+#res = test_G2G_setup(study_design, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "sample_size_5000_beta_0.5_power_gain_old_do_not_work", get_viral = generate_AAs_power_gain_do_not_works_like_old)
+res = test_G2G_setup(study_design, sc2_ret, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "s", get_viral = generate_AAs_pg_new)
+
+###Study design do not change results
+
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1500, `B` = 1000), `P2` = c(`A` = 1500, `B`  = 1000))))
+sc2_ret_double_ass = get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"), associated_strains = "full", associated_populations = "full", beta = 0.25)
+res = test_G2G_setup(study_design, sc2_ret_double_ass, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "ps", get_viral = generate_AAs_pg_new_da)
+
+study_design = to_study_design(as.data.frame(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250))))
+sc2_ret_double_ass = get_G2G_setup(1000, s_stratified = c("P1","P2"), y_stratified = c("A","B"), associated_strains = "full", associated_populations = "full", beta = 0.25)
+res = test_G2G_setup(study_design, sc2_ret_double_ass, fst_pop_strat = 0.2, fst_strain_strat = 0.2, tag = "s", get_viral = generate_AAs_pg_new_da)
+
+
+
+
+
+
+res = replicate(30, {
+	SNP.freq = get_frequencies(SNP.scenario, populations, strains)
+	SNP.data = generate_SNPs_for_G2G(SNP.freq, study_design)
+	sum(SNP.data)})
