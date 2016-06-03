@@ -16,3 +16,4 @@ source("GWAS.R")
 trace <- TRUE
 
 nb_cpu = 2
+dir.create("../gen-data", showWarnings = F, recursive = F, mode = "0777")

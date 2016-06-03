@@ -100,7 +100,7 @@ Similarly with viral side...
 **associated_populations** in case of association this is the human population associated (if omitted all strained are associated)
 
 ```{r, echo=FALSE, cache=TRUE}
-neutral_C = get_G2G_setup(rep = 1000, s_stratified = c("P1","P2"), s_biased = c("A","B"), s_partial_bias = c("P1"), a_stratified = c("A","B"))
+G2G_setup = get_G2G_setup(rep = 1000, s_stratified = c("P1","P2"), s_biased = c("A","B"), s_partial_bias = c("P1"), a_stratified = c("A","B"))
 ```
 
 ####Run G2G Setup
@@ -115,7 +115,7 @@ neutral_C = get_G2G_setup(rep = 1000, s_stratified = c("P1","P2"), s_biased = c(
 **beta** if there is association set the log of odd ratio
 
 ```{r, echo=FALSE, cache=TRUE}
-test_G2G_setup(study_design, neutral_C, fst_pop_strat = 0.2, fst_pop_bias = 0.2, fst_strain_strat = 0.2)
+test_G2G_setup(study_design, G2G_setup, fst_pop_strat = 0.2, fst_pop_bias = 0.2, fst_strain_strat = 0.2)
 ```
 
 The results are automatically plot. There is too type of it at different scale. With pvalues, and with pvalues difference relative to particular correction.

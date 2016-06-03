@@ -129,7 +129,7 @@ summary_sim <- function(res, params,filter="Causal") {
 
 ###@GWR : GWAS result
 plot_GWAS_manhattan <- function(GWR, save = TRUE, file = paste0("../gen-data/GWAS-simulation-MH")) {
-	if(trace == TRUE) ifelse((save == T), print(paste(Sys.time(),"Saving plot in", paste0(getwd(),"/gen-data/"), sep=" : "))) else print(paste(Sys.time(),"Plotting"))
+	if(trace == TRUE) ifelse((save == T), print(paste(Sys.time(),"Saving plot in", paste0("gen-data/"), sep=" : "))) else print(paste(Sys.time(),"Plotting"))
 	GWR_name = deparse(substitute(GWR))
 	threshold = -log10(0.05/length(GWR$pvalues[[1]]$pval))
 	tag = c("Without correction", "With human groups", "With 5PCs")
