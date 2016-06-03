@@ -25,7 +25,7 @@ my_population = generate_population_for_GWAS(list(
 
 #### Run the GWAS analysis
 Number of neutral SNP is  100000
-On this 5% will be stratfied
+On this 5% will be stratified
 20 non stratified causal SNP will be added with R coefficient between 1 and 2 
 20 stratified causal SNP will be added with R coefficient between 1 and 2 
 Fixation coefficient for making stratification strength is 0.2
@@ -47,7 +47,7 @@ Plot the results with 3 different conditions :
 * With human groups
 * With 5 first PCs
 
-On manhattan plots
+On Manhattan plots
 
 ```R
 plot_GWAS_manhattan(GWAS_result)
@@ -62,7 +62,7 @@ plot_GWAS_QQ(GWAS_result)
 # Simulate G2G setup
 
 #### Setup the study design
-Describe your study design in termes of population and strain distribution
+Describe your study design in terms of population and strain distribution
 Population P1 and P2 has the same amount of sample (2500 each) but in P1 1500 samples has strain A and 1000 has strain B and conversely in P2
 
 ```R
@@ -73,7 +73,7 @@ study_design = to_study_design(list(
 
 #### Setup the the G2G pattern
 
-**rep** is the numer of repetition you want to execute to draw the pvalue distribution
+**rep** is the number of repetition you want to execute to draw the pvalue distribution
 
 **s_stratified** is the stratification you want to set in **S**NP on **human population**. The order give the stratification gradient.
 > eg : here there will be more alternate allele in population P1 than population P2.
@@ -81,19 +81,19 @@ study_design = to_study_design(list(
 **s_biased** is the biased you want to set in **S**NP in function of **pathogen population**. The order give the bias gradient.
 > eg : Here there will be more alternate allele in sample that has strain A than strain B. 
 
-**s_partial_bias** if the biased you setted in **S**NP occurs in a specific **human population**. It require s_biased to be defined. 
+**s_partial_bias** if the biased you set in **S**NP occurs in a specific **human population**. It require s_biased to be defined. 
 > eg : Here the bias between strain A and B will occurs only in population P1.
 
-**s_partial_strat** if the stratification you setted in **S**NP occurs in a specific **pathogen population** It require s_stratified to be defined. 
+**s_partial_strat** if the stratification you set in **S**NP occurs in a specific **pathogen population** It require s_stratified to be defined. 
 
 Similarly with viral side...  
 **a_stratified** is the stratification you want to set in **A**AVP on pathogen population. The order give the stratification gradient. >here there will be more alternate amino acid in strain A than in strain B.
 
 **a_biased** is the bias you want to set in **A**AVP in function of human population. The order give the bias gradient. 
 
-**a_partial_strat** if the stratification you setted in **A**AVP occurs in a specific **human population**. It require a_stratified to be defined. 
+**a_partial_strat** if the stratification you set in **A**AVP occurs in a specific **human population**. It require a_stratified to be defined. 
 
-**a_partial_bias** if the biased you setted in **A**AVP occurs in a specific **pathogen population**. It require a_biased to be defined. 
+**a_partial_bias** if the biased you set in **A**AVP occurs in a specific **pathogen population**. It require a_biased to be defined. 
 
 **associated_strains** in case of association this is pathogen population associated (if omitted all strained are associated)
 
@@ -136,7 +136,7 @@ This is described as a functional composition
 
 **G2G_conf()**  combine **SNP()**, **AA()**, **association()** and a number of time to replicate the pattern.
 
->eg here the described pattern will be repeted 5 times
+>eg here the described pattern will be repeated 5 times
 
 **SNP()** :
 * **size** : the number of SNPs you want, the only mandatory parameter
@@ -193,7 +193,7 @@ Each of the type of correction is by default turned off, and can activated by pa
 * **W_strain_groups_human_PC**: with 5 first PCs from SNPs data and strain groups
 * **W_non_linear_PC**: with 5 first non linear PCs from AAPVs data
 
-**nb_cpu** : number of available cpu to use
+**nb_cpu** : number of available CPU to use
 
 ```R
 G2G_result = analyse_G2G(omics_data, study_design, WO_correction = T, analyse = c("logistic", "gt", "skat-L","skato-L",  "G2"), nb_cpu = 30)
@@ -202,7 +202,7 @@ G2G_result = analyse_G2G(omics_data, study_design, WO_correction = T, analyse = 
 
 #### Plot results
 
-Will draw manhattan plot for each analysis
+Will draw Manhattan plot for each analysis
 ```R
 plot_collapsed_G2G(G2G_result, AA.scenarios = omics_data$AA.scenarios)
 ```
