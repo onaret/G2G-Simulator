@@ -148,7 +148,7 @@ analyse_G2G <- function(data, study_design, WO_correction = F, W_human_group = F
 			res = do.call(cbind, lapply(names(res), function(aa_id) {
 				do.call(rbind, unname(lapply(res[[aa_id]], function(SNP) {
 					setNames(data.frame(unname(SNP)), aa_id)})))}))
-			res = cbind(`SNP_Tag` = SNP_Tag, `Correction` =  CorrectionCol, res)}
+			res = cbind(`SNP` = SNPcol, `SNP_Tag` = SNP_Tag, `Correction` =  CorrectionCol, res)}
 		
 		SKAT_analyse <- function() {
 			if(trace) print(paste(Sys.time(),": doing SKAT"))
@@ -263,7 +263,6 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
 	invisible(lapply(names(res), function(analyse) {
 		if(analyse == "logistic") {
 			res = res[[analyse]]
-			res$SNP <- 1:nrow(res) 
 			threshold = 0.05/((ncol(res)-3)*(nrow(res)/length(levels(res$Correction))))
 			res = as.data.frame(res) %>% gather(AA, pvalue,-SNP, -Correction, -SNP_Tag, convert = T)
 			res$pvalue = -log10(as.numeric(res$pvalue))
@@ -335,8 +334,11 @@ get_association_AA_SNP <- function(AA.scenario) {
 				do.call(rbind, lapply(unlist(SNP), function(SNP){data.frame(SNP, AA, `associated` = T)}))}))}},
 		AA.scenario$id, AA.scenario$associated_SNPs, SIMPLIFY = F)))}
 
-plot_collapsed_G2G_on_tags <- function(res, AA.scenarios, SNP.scenarios) {
+plot_G2G_on_tags <- function(res, AA.scenarios, SNP.scenarios) {
 	threshold = 0.05/(ncol(res)*nrow(res))
+	
+	res=res$logistic
+	
 	res_tidy = res %>% gather(AA, pvalue, -SNP, -Correction, factor_key = T)
 	res_tidy = do.call(rbind, mapply(function(tag,id) {
 		data.frame(SNP.tag = as.factor(tag), filter(res_tidy, SNP %in% unlist(id)))}
@@ -344,7 +346,7 @@ plot_collapsed_G2G_on_tags <- function(res, AA.scenarios, SNP.scenarios) {
 	res_tidy = do.call(rbind, mapply(function(tag,id) {
 		data.frame(AA.tag = as.factor(tag), filter(res_tidy, AA %in% unlist(id)))}
 		, AA.scenarios$id_tag, AA.scenarios$id, SIMPLIFY = F))
-	res_tidy$pvalue = -log10(res_tidy$pvalue)
+	res_tidy$pvalue = -log10(as.numeric(res_tidy$pvalue))
 	
 	plot_with_correction <- function(...,save = F) {
 		correction=c(...)
@@ -369,7 +371,6 @@ plot_pvalue_by_methods <- function(res, AA.scenarios) {
 	res_all = lapply(analyses, function(analyse){ 
 		res = res[[analyse]]
 		if(analyse == "logistic") {
-			res$SNP <- 1:nrow(res) 
 			res = as.data.frame(res) %>% gather(AA, pvalue, -SNP, -Correction, -SNP_Tag, convert = T)
 			res$pvalue = -log10(as.numeric(res$pvalue))
 			association_table = get_association_AA_SNP(AA.scenarios)
