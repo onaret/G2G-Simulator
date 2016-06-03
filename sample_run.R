@@ -96,3 +96,6 @@ data_purer = parse_G2G_config(
 res = analyse_G2G(data_purer, study_design, WO_correction = T, analyse = c("logistic", "gt", "skat-L","skato-L",  "G2"), nb_cpu = nb_cpu)
 plot_collapsed_G2G(res, AA.scenarios = data_purer$AA.scenarios)
 plot_pvalue_by_methods(res, AA.scenarios = data_purer$AA.scenarios)
+
+res = analyse_G2G(data_purer, study_design, WO_correction = T, analyse = c("logistic"), nb_cpu = nb_cpu)
+plot_G2G_on_tags(res, AA.scenarios = data_purer$AA.scenarios, SNP.scenarios = data_purer$SNP.scenarios)
