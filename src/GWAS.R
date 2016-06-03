@@ -20,7 +20,7 @@ GWAS_scenario <- function(populations, neutral=0, neutral_S_rate=0, causal_S=c()
 	res = analyse_GWAS(SNPs$data, populations, nb_pc)
 	threshold =  0.05/nrow(SNPs$params)
 	pvalues = parse_pvalues(res, threshold)
-	summary_sim = summary_sim(pvalues, SNPs$params, "Causal")
+	summary_sim = summary_sim(pvalues, SNPs$params)
 	populations = rbind(populations, matrix(c(sum(populations[,"Case"]), sum(populations[,"Control"])),ncol = 2, nrow = 1, dimnames = list("Total") ) )
 	list(#`SNPs` = SNPs,
 		`study_design` = populations,
@@ -111,56 +111,55 @@ analyse_GWAS <- function(SNPs, populations, nb_pc) {
 	data.frame(WO_correction, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs))}
 
 ##@G
-parse_pvalues<- function(pvalues, threshold) {
-	apply(pvalues, 2 , function(pval) {
-		signiff = c()
-		signiff[threshold < pval] <- 1
-		signiff[threshold*0.1 < pval & pval <= threshold] <- 2
-		signiff[threshold*0.01 < pval & pval <= threshold*0.1] <- 3
-		signiff[threshold*0.001 < pval & pval <= threshold*0.01] <- 4
-		signiff[pval <= threshold*0.001] <- 5
-		data.frame(pval, `signiff` = factor(signiff, level=1:5, label=c("ns","*","**","***","+")), `pval_diff` = -log10(pvalues$WO_correction/pval) )})}
-
-##@G
-summary_sim <- function(pvalues, params, filter) {
+summary_sim <- function(res, params,filter="Causal") {
 	mapply(function(result, name) {
 		FP_neutral = rownames(params[result$signiff != "ns" & !params[,filter],])
 		FN_causal = rownames(params[result$signiff == "ns" & params[,filter],])
-		z = qnorm(result[params[,filter] == FALSE,]$pval/2)
-		lambda = median(z^2,na.rm = T)/0.456
+		chisq <- qchisq(1-result[params[,filter] == FALSE,]$pval,1)
+		lambda = median(chisq, na.rm = T)/qchisq(0.5,1)
 		names = c("FP_neutral", "FN_causal")
 		sum = c(length(FP_neutral), length(FN_causal))
 		ratio = (sum/c(sum(!params[,filter]), sum(params[,filter]) ) )*100
 		ratio[is.nan(ratio)] = 0
 		total = data.frame(sum, ratio, row.names = names)
-		power_gain = median(-log10(pvalues$WO_correction$pval/result$pval), na.rm = T)
+		power_gain = median(-log10(res$WO_correction$pval/result$pval), na.rm = T)
 		res_full = list(`SNP` = c(FP_neutral, FN_causal), `sum`=setNames(sum,names),`ratio`=setNames(ratio, names), `lambda` = lambda)
 		res = list(`FP_sum`=sum[1],`FP_ratio`=ratio[1], `FN_sum`=sum[2],`FN_ratio`=ratio[2], `lambda` = lambda, `power_gain` = power_gain)
-		Filter(length, res)}, pvalues, names(pvalues))}
+		Filter(length, res)}, res, names(res))}
 
 ###@GWR : GWAS result
-plot_GWAS <- function(GWR, save = TRUE, file = paste0(Sys.time(),".png")) {
-	if(trace == TRUE) ifelse((save == FALSE), print(paste(Sys.time(),"Ploting...", sep=" : ")), print(paste(Sys.time(),"Writting plots", sep=" : ")))
-	tag = c("Without correction", "With human groups", "With viral groups", "With human and viral groups")
-	tag = names(GWR$pvalues)
-	mapply(function(main_name, condition) {
+plot_GWAS_manhattan <- function(GWR, save = TRUE, file = paste0("../gen-data/GWAS-simulation-MH")) {
+	if(trace == TRUE) ifelse((save == T), print(paste(Sys.time(),"Saving plot in", paste0(getwd(),"/gen-data/"), sep=" : "))) else print(paste(Sys.time(),"Plotting"))
+	GWR_name = deparse(substitute(GWR))
+	threshold = -log10(0.05/length(GWR$pvalues[[1]]$pval))
+	tag = c("Without correction", "With human groups", "With 5PCs")
+	names(GWR$pvalues) <- tag
+	invisible(mapply(function(main_name, condition) {
 		result = cbind(`Stratified` = GWR$SNP_params$Stratified, `Causal` = GWR$SNP_params$Causal,`R` = GWR$SNP_params$R, GWR$pvalues[[condition]])
 		result$SNP_type = mapply(function(stratified, causal) {paste(if(stratified) "Stratified" else "Non-Stratified", if(causal) "Causal" else "Non-Causal")}, result$Stratified, result$Causal)
 		result$pval = -log10(result$pval)
 		result$SNP_num = 1:length(result$pval)
 		p <- ggplot(result, aes(SNP_num, pval))
-		p + geom_point(aes(colour = SNP_type)) + scale_colour_manual(values =c("orange", "black", "red", "grey")) + geom_hline(yintercept = -log10(threshold)) + labs(title = main_name, x = "SNP")+
-			theme(axis.text = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
+		p + geom_point(aes(colour = SNP_type)) + scale_colour_manual(values =c("orange", "black", "red", "grey")) + 
+			geom_hline(yintercept = threshold,colour="red") + labs(title = main_name, x = "SNP")+
+			#	theme(axis.text = element_text(size=24), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
 			scale_y_continuous(limits = c(0, 45))
-		if(save == TRUE) ggsave(filename = paste0(file,"-",main_name,".png"), width = 20, height = 14)
-	},tag, names(GWR$pvalues))}
+		#print(p)
+		if(save == TRUE) ggsave(filename = paste0(file,"-",GWR_name,"-",main_name, ".png"), dpi = 300)
+	},tag, names(GWR$pvalues)))}
 
 ####@pvector: pvalue vector
-qq <- function(pvector, title="Quantile-quantile plot of p-values", spartan=F) {
-	y = -log10(sort(pvector,decreasing=F))
-	x = -log10( 1:length(y)/length(y) )
-	p <- ggplot(data.frame(x,y), aes(x, y))
-	p + geom_smooth() + labs(title="QQ-plot", x = "Expected  -Log10(pval)", y = "Observed -Log10(pval)") + geom_abline(intercept = 0, colour ="red") + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0))}
+plot_GWAS_QQ <- function(GWR, save = TRUE, file = paste0("../gen-data/GWAS-simulation-QQ"), spartan=F) {
+	GWR_name = deparse(substitute(GWR))
+	tag = c("Without correction", "With human groups", "With 5PCs")
+	names(GWR$pvalues) <- tag
+	invisible(mapply(function(main_name, condition) {
+		y = -log10(sort(GWR$pvalues[[condition]]$pval, decreasing=F))
+		x = -log10( 1:length(y)/length(y) )
+		p <- ggplot(data.frame(x,y), aes(x, y))
+		p + geom_point() + labs(title=main_name, x = "Expected  -Log10(pval)", y = "Observed -Log10(pval)") + geom_abline(intercept = 0, colour ="red") + scale_x_continuous(expand = c(0, 0)) + scale_y_continuous(expand = c(0, 0))
+		if(save == TRUE) ggsave(filename = paste0(file,"-",GWR_name,"-",main_name, ".png"), dpi = 300)
+	},tag, names(GWR$pvalues)))}
 
 ###@LGWR : List of GWAS results
 analyse_FP_in_function_of_s_rate <- function(LGWR, save = TRUE, file = paste0(Sys.time(),".png", title="") ) {
