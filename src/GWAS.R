@@ -103,11 +103,11 @@ analyse_GWAS <- function(SNPs, populations, nb_pc) {
 	SNP_PC = prcomp(SNPs, scale. = FALSE)
 	SNP_PC = SNP_PC$x[,1:ifelse(ncol(SNP_PC$x)<nb_pc, ncol(SNP_PC$x), nb_pc)]
 	if(trace == TRUE) print(paste(Sys.time(),"Computing logistic regression with computed PC", sep=" : "))
-	W_computed_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP+SNP_PC)))[,4][2])
+	W_computed_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP+SNP_PC, family = binomial)))[,4][2])
 	if(trace == TRUE) print(paste(Sys.time(),"Computing logistic regression with simulated  PC", sep=" : "))
-	W_simulated_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP+simulated_PC)))[,4][2])
+	W_simulated_PC = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP+simulated_PC, family = binomial)))[,4][2])
 	if(trace == TRUE) print(paste(Sys.time(),"Computing logistic regression without PC", sep=" : "))
-	WO_correction = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP)))[,4][2])
+	WO_correction = apply(SNPs,2, function(SNP) coef(summary(glm(y~SNP, family = binomial)))[,4][2])
 	data.frame(WO_correction, W_simulated_PC, W_computed_PC, row.names = colnames(SNPs))}
 
 ##@G

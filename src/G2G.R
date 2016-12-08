@@ -2,7 +2,9 @@
 
 ##@G
 parse_pvalues<- function(pvalues, threshold) {
-	apply(pvalues, 2 , function(pval) {
+  pvalues = as.data.frame(pvalues)
+  pvalues = pvalues[complete.cases(pvalues),]
+  apply(pvalues, 2 , function(pval) {
 		signiff = c()
 		signiff[threshold < pval] <- 1
 		signiff[threshold*0.1 < pval & pval <= threshold] <- 2
@@ -45,9 +47,10 @@ get_AA <- function(study_design, AA.scenarios, SNP.data, associated_SNPs = NULL,
 		AA.scenario$Associated_Populations = list(if(!is.na(associated_populations)) if(associated_populations == "full") populations else if(associated_populations == "half") sample(populations, 1) else associated_populations)
 		AA.scenario$Associated_Strains = list(if(!is.na(associated_strains)) if(associated_strains == "full") strains else if(associated_strains == "half") sample(strains, 1) else associated_strains)
 		AA.freq = get_frequencies(AA.scenario, strains,populations)
+		##If associated_SNPs is null we might be in a full G2G simulation
 		associated_SNPs = if(is.null(associated_SNPs)) SNP.data[,unlist(AA.scenario$associated_SNPs), drop = F] else associated_SNPs
 		AA.data = generate_AAs(AA.freq, AA.scenario, study_design, associated_SNPs)
-		colnames(AA.data) <- unlist(AA.scenario$id)
+		colnames(AA.data) <- if("id" %in% colnames(AA.scenario)) unlist(AA.scenario$id)
 		AA.data}))}
 
 ##@G
@@ -58,7 +61,7 @@ get_SNP <- function(study_design, SNP.scenarios) {
 		SNP.scenario = SNP.scenarios[scenario_num,]
 		SNP.freq = get_frequencies(SNP.scenario, populations, strains)
 		SNP.data = generate_SNPs_for_G2G(SNP.freq, study_design)
-		colnames(SNP.data) <- unlist(SNP.scenario$id)
+		colnames(SNP.data) <- if("id" %in% colnames(SNP.scenario)) unlist(SNP.scenario$id)
 		SNP.data}))}
 
 ##@G
@@ -80,28 +83,47 @@ get_frequencies <- function(scenario, main_subgroup, secondary_subgroup) {
 	
 	#F_strat = if(length(unique(strat)) >1) sort(get_AF(RF, scenario$fst_strat, length(unique(strat))), decreasing = TRUE)[strat] else rep(get_AF(RF, 0.2,1), nb_main_subgroup)
 	###Bias first then strat
-	freq = if(!is.null(p_strat) || (length(unique(bias)) >1) ) {
+	freq = if(!is.null(p_strat)) {
 		t(replicate(scenario$size, {
 			RF = runif(1, 0.1, 0.4)
-			F_bias = if(length(unique(bias)) >1) sort(get_AF(RF, scenario$fst_bias, length(unique(bias))), decreasing = TRUE)[bias] else rep(RF, nb_secondary_subgroup)
+			F_bias = if(length(unique(bias)) >1)  
+			  sort(get_AF(RF, scenario$fst_bias, length(unique(bias))), decreasing = TRUE)[bias] 
+			else 
+			  rep(RF, nb_secondary_subgroup) 
 			##IF pstrat case ! => I had to change things from rep(F_bias, each = nb_main_subgroup) to rep(F_bias, nb_main_subgroup), there mus be a reason!
-			F_strat =  if(length(unique(strat)) >1) c(sapply(F_bias, function(RF) sort(get_AF(RF, scenario$fst_strat, length(unique(strat))), decreasing = TRUE)[strat])) else rep(F_bias, nb_main_subgroup)
-			
-			#F_strat[!is.null(p_bias) & p_bias == 0] = rep(F_bias, each = nb_secondary_subgroup)[p_bias == 0]
+			F_strat =  if(length(unique(strat)) >1) 
+			  c(sapply(F_bias, function(RF) sort(get_AF(RF, scenario$fst_strat, length(unique(strat))), decreasing = TRUE)[strat])) 
+			else 
+			  rep(F_bias, nb_main_subgroup)
 			F_strat[!is.null(p_strat) & p_strat == 0] = rep(F_bias, nb_main_subgroup)[p_strat == 0]
 			F_strat}))
 	}
 	###Strat first then bias
 	else if(!is.null(p_bias) ||  (length(unique(strat)) >1)){
 		t(replicate(scenario$size, {
-			RF = if(!is.na(scenario$fst_strat) & length(unique(strat)) == 1) get_AF(runif(1, 0.1, 0.4), fst = scenario$fst_strat, nb = 1) else runif(1, 0.1, 0.4)
-			F_strat = if(length(unique(strat)) >1) sort(get_AF(RF, scenario$fst_strat, length(unique(strat))), decreasing = TRUE)[strat] else rep(RF, nb_main_subgroup)
-			F_bias =  if(length(unique(bias)) >1) c(sapply(F_strat, function(RF) sort(get_AF(RF, scenario$fst_bias, length(unique(bias))), decreasing = TRUE)[bias])) else rep(F_strat, each = nb_secondary_subgroup)
+			RF = if(!is.na(scenario$fst_strat) & length(unique(strat)) == 1) 
+			  get_AF(runif(1, 0.1, 0.4), fst = scenario$fst_strat, nb = 1) 
+			else 
+			  runif(1, 0.1, 0.4)
+			
+			F_strat = if(length(unique(strat)) >1) 
+			  sort(get_AF(RF, scenario$fst_strat, length(unique(strat))), decreasing = TRUE)[strat] 
+			else 
+			  rep(RF, nb_main_subgroup)
+			
+			F_bias =  if(length(unique(bias)) >1) 
+			  c(sapply(F_strat, function(RF) sort(get_AF(RF, scenario$fst_bias, length(unique(bias))), decreasing = TRUE)[bias])) 
+			else 
+			  rep(F_strat, each = nb_secondary_subgroup)
 			#F_bias[!is.null(p_strat) & p_strat == 0] = rep(F_strat, nb_main_subgroup)[p_strat == 0]
+			
 			F_bias[!is.null(p_bias) & p_bias == 0] = rep(F_strat, each = nb_secondary_subgroup)[p_bias == 0]
 			F_bias}))
 	}
-	else 	t(replicate(scenario$size, rep(runif(1, 0.1, 0.4), nb_secondary_subgroup * nb_main_subgroup)))
+	else 	{
+	  #do.call(rbind, replicate(scenario$size, rep(runif(1, 0.1, 0.4), nb_secondary_subgroup * nb_main_subgroup), simplify = F))
+	  do.call(rbind, replicate(scenario$size, rep(get_AF(runif(1, 0.1, 0.4), 0.02), nb_secondary_subgroup * nb_main_subgroup), simplify = F))
+	  }
 	colnames(freq) <- paste0("F_", rep(main_subgroup, each = nb_secondary_subgroup),".", secondary_subgroup)
 	freq}
 
@@ -110,7 +132,17 @@ get_AF <- function(allele, fst, nb = 1) {
 	if(is.na(fst)) stop("Specify fst")
 	s1 = allele*(1-fst)/fst
 	s2 = (1-allele)*(1-fst)/fst
-	rbeta(n = nb, shape1 = s1,shape2 = s2)}
+	get_ref <- function(ref_old=c()){
+	  ref_new = rbeta(n = 1, shape1 = s1,shape2 = s2)
+	  if(length(ref_old) == nb)
+	    ref_old
+	  else if(ref_new>0.05 && ref_new<0.95)
+	    get_ref(c(ref_new, ref_old))
+	  else
+	    get_ref(ref_old)}
+	get_ref()
+	#rbeta(n = nb, shape1 = s1,shape2 = s2)
+	}
 
 generate_SNPs_for_G2G <- function(SNP.freq, study_design) {
 	nb_strains = length(levels(study_design$Strain))

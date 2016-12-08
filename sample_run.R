@@ -40,6 +40,11 @@ study_design = to_study_design(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`
 neutral_C = get_G2G_setup(1000, s_stratified = c("P1","P2"), s_biased = c("A","B"), s_partial_bias = c("P1"), a_stratified = c("A","B"))
 test_G2G_setup(study_design, neutral_C, fst_pop_strat = 0.2, fst_pop_bias = 0.2, fst_strain_strat = 0.2)
 
+study_design = to_study_design(list(`P1` = c(`A` = 1500, `B` = 1000), `P2` = c(`A` = 1000, `B`  = 1500)))
+neutral_E = get_G2G_setup(100, s_stratified = c("P1","P2"), a_stratified = c("A","B"))
+test_G2G_setup(study_design, neutral_E, fst_pop_strat = 0.2, fst_strain_strat = 0.2)
+
+
 #Causal scenarios
 study_design = to_study_design(list(`P1` = c(`A` = 2500), `P2` = c(`A` = 2500)))
 causal_A = get_G2G_setup(1000, s_stratified = "full", associated_strains = "full", associated_populations = "full", beta = 0.25)
@@ -49,9 +54,9 @@ study_design = to_study_design(list(`P1` = c(`A` = 5000)))
 causal_B = get_G2G_setup(1000, associated_strains = "full", associated_populations = "full", beta = 0.25)
 test_G2G_setup(study_design, causal_B,  fst_pop_strat = 0.2)
 
-study_design = to_study_design(list(`P1` = c(`A` = 1250, `B` = 1250), `P2` = c(`A` = 1250, `B`  = 1250)))
+study_design = to_study_design(list(`P1` = c(`A` = 1500, `B` = 1000), `P2` = c(`A` = 750, `B`  = 1750)))
 causal_C = get_G2G_setup(1000, s_stratified = c("P1","P2"), associated_strains = "full", associated_populations = "full", beta = 0.25)
-test_G2G_setup(study_design, causal_C, fst_pop_strat = 0.2)
+test_G2G_setup(study_design, causal_C, fst_pop_strat = 0.2, sup_SNP_for_PC = SNP_sup)
 
 causal_D = get_G2G_setup(1000, s_stratified = c("P1","P2"), a_stratified = c("A","B"), associated_strains = "full", associated_populations = "full", beta = 0.25)
 test_G2G_setup(study_design, causal_D, fst_pop_strat = 0.2, fst_strain_strat = 0.2, get_viral = generate_AAs_with_noise)
@@ -93,9 +98,9 @@ data_purer = parse_G2G_config(
 		bio_tag = "fs2_ss1",
 		replicate = 5))
 
-res = analyse_G2G(data_purer, study_design, WO_correction = T, analyse = c("logistic", "gt", "skat-L","skato-L",  "G2"), nb_cpu = nb_cpu)
+res = analyse_G2G(data_purer, WO_correction = T, analyse = c("logistic", "gt", "skat-L","skato-L",  "G2"), nb_cpu = nb_cpu)
 plot_collapsed_G2G(res, AA.scenarios = data_purer$AA.scenarios)
 plot_pvalue_by_methods(res, AA.scenarios = data_purer$AA.scenarios)
 
-res = analyse_G2G(data_purer, study_design, WO_correction = T, analyse = c("logistic"), nb_cpu = nb_cpu)
+res = analyse_G2G(data_purer, WO_correction = T, analyse = c("logistic"), nb_cpu = nb_cpu)
 plot_G2G_on_tags(res, AA.scenarios = data_purer$AA.scenarios, SNP.scenarios = data_purer$SNP.scenarios)

@@ -1,16 +1,22 @@
 source("G2G.R")
 
+#TODO: add a "s" to method parse_G2G_config, it allow to make different G2G_config and replicate them.
+#TODO: Remove use of environnement variable using recursive approach
+#TODO merge parse_G2G_conf with analyze_G2G
+  #TODO make a method for setting correction, queu argument of parse_G2G_config
+  #TODO make a method for setting analyze method, queu argument of parse_G2G_config
+  #TODO add argument for CPU
 #@`...`: G2G_conf()
 parse_G2G_config <- function(study_design, ...) {
 	set_env("AA", 0)
 	set_env("SNP", 0)
 	#Turn it to calls list to set last AA_id and last SNP_id after last G2G_conf call
 	s = list(...)
-	AA.scenarios = rbind_all(lapply(s, function(ele) ele$AA.scenarios))
-	SNP.scenarios = rbind_all(lapply(s, function(ele) ele$SNP.scenarios))
+	AA.scenarios = bind_rows(lapply(s, function(ele) ele$AA.scenarios))
+	SNP.scenarios = bind_rows(lapply(s, function(ele) ele$SNP.scenarios))
 	SNP.data = get_SNP(study_design, SNP.scenarios)
 	AA.data = get_AA(study_design, AA.scenarios, SNP.data)
-	list(`AA.scenarios` = AA.scenarios,`AA.data` = AA.data, `SNP.data` = SNP.data, `SNP.scenarios` = SNP.scenarios)}
+	list(`AA.scenarios` = AA.scenarios,`AA.data` = AA.data, `SNP.scenarios` = SNP.scenarios, `SNP.data` = SNP.data, `study_design` = study_design)}
 
 #Here receive last AA_id, last SNP_id, turn replicate to for loops to set last id after last AA or SNP call.
 #@`...`: AA() | SNP() | association()
@@ -32,8 +38,8 @@ G2G_conf<- function(...,bio_tag=NA, replicate = 1) {
 				do.call(association, call_mod)}
 			else {stop(paste0(call[1], " is not a valid function call"))}})})
 	##Could merge scenario having same id_tag and different biotag, need to recalculate 'Size', and merge 'id'
-	AA.scenarios = rbind_all(lapply(unlist(res,recursive =F), function(res) res$AA.scenarios))
-	SNP.scenarios = rbind_all(lapply(unlist(res,recursive =F), function(res) res$SNP.scenarios))
+	AA.scenarios = bind_rows(lapply(unlist(res,recursive =F), function(res) res$AA.scenarios))
+	SNP.scenarios = bind_rows(lapply(unlist(res,recursive =F), function(res) res$SNP.scenarios))
 	
 	res = list(`AA.scenarios` = AA.scenarios, `SNP.scenarios` = SNP.scenarios)	}
 
@@ -42,13 +48,13 @@ association <- function(..., replicate = 1) {
 	saved_eval = substitute(list(...))
 	res = replicate(replicate, {
 		res = eval(saved_eval)
-		AA.scenarios = rbind_all(lapply(res, function(ele) ele$AA.scenarios))
-		SNP.scenarios = rbind_all(lapply(res, function(ele) ele$SNP.scenarios))
+		AA.scenarios = bind_rows(lapply(res, function(ele) ele$AA.scenarios))
+		SNP.scenarios = bind_rows(lapply(res, function(ele) ele$SNP.scenarios))
 		#Here make a thirs object, association table instead of putting it into AA.scenario
 		AA.scenarios$associated_SNPs = list(unlist(SNP.scenarios$id))
 		AA.scenarios$associated_SNP_tag = list(unique(unlist(SNP.scenarios$bio_tag)))
 		list(`AA.scenarios` = AA.scenarios, `SNP.scenarios` = SNP.scenarios)}, simplify = F)
-	list(`AA.scenarios` = rbind_all(lapply(res, function(ele) ele$AA.scenarios)), `SNP.scenarios` = rbind_all(lapply(res, function(ele) ele$SNP.scenarios)))}
+	list(`AA.scenarios` = bind_rows(lapply(res, function(ele) ele$AA.scenarios)), `SNP.scenarios` = bind_rows(lapply(res, function(ele) ele$SNP.scenarios)))}
 
 AA <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, associated_strains = NA, associated_populations =NA, beta=NA, bio_tag=NA) {
 	list(`AA.scenarios` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
@@ -100,7 +106,7 @@ set_env <- function(name, value) {
 	names(args) = name
 	do.call(Sys.setenv, args)}
 
-analyse_G2G <- function(data, study_design, WO_correction = F, W_human_group = F, W_strain_group = F, W_both_groups = F, W_human_PC = F, W_strain_PC = F, W_both_PC = F, W_strain_groups_human_PC = F, W_non_linear_PC =F, analyse, nb_cpu) {
+analyse_G2G <- function(data, WO_correction = F, W_human_group = F, W_strain_group = F, W_both_groups = F, W_human_PC = F, W_strain_PC = F, W_both_PC = F, W_strain_groups_human_PC = F, W_non_linear_PC =F, analyse, nb_cpu) {
 	attach(data)
 	
 	if(trace) print(paste0(Sys.time()," : Computing PC"))
@@ -126,18 +132,25 @@ analyse_G2G <- function(data, study_design, WO_correction = F, W_human_group = F
 		logistic_analyse <- function() {
 			if(trace) print(paste(Sys.time(),": doing logistic regression"))
 			analyse_AA <- function(Y) {
-				Filter(length, list(
+				counter <<- counter + 1
+				print(paste0("AA number ", counter," on ", nb_aa ," ", (counter/nb_aa) * 100, "% done, ETA in ",
+           round(((1 - counter/nb_aa) / ((counter/nb_aa) / ((proc.time() - ptm)["elapsed"]/3600) %/% 24))), " hours and ",
+           round(((1 - counter/nb_aa) / ((counter/nb_aa) / ((proc.time() - ptm)["elapsed"]/60) %% 60))), " minutes"))
+				if(trace) print(paste0("AA number ", counter," on ", nb_aa ," ", (counter/nb_aa) * 100, "% done for logistic regression"))
+			  Filter(length, list(
 					`Without correction` = if(WO_correction) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X)))[,4][2]),
-					`With human group` = if(W_human_group) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"])))[,4][2]),
-					`With strain group` =  if(W_strain_group) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Strain"])))[,4][2]),
-					`With both groups` = if(W_both_groups) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"]+study_design[,"Strain"])))[,4][2]),
-					`With human PC` = if(W_human_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC)))[,4][2]),
-					`With strain PC` = if(W_strain_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_PC)))[,4][2]),
-					`With both PC` = if(W_both_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+AA_PC)))[,4][2]),
-					`W_strain_groups_human_PC` = if(W_strain_groups_human_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+study_design[,"Strain"])))[,4][2]),
-					`With non linear PC` = if(W_non_linear_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_NL_PC+study_design[,"Population"])))[,4][2])))}
+					`With human group` = if(W_human_group) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"], family = binomial)))[,4][2]),
+					`With strain group` =  if(W_strain_group) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Strain"], family = binomial)))[,4][2]),
+					`With both groups` = if(W_both_groups) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"]+study_design[,"Strain"], family = binomial)))[,4][2]),
+					`With human PC` = if(W_human_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC, family = binomial)))[,4][2]),
+					`With strain PC` = if(W_strain_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_PC, family = binomial)))[,4][2]),
+					`With both PC` = if(W_both_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+AA_PC, family = binomial)))[,4][2]),
+					`W_strain_groups_human_PC` = if(W_strain_groups_human_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+study_design[,"Strain"], family = binomial)))[,4][2]),
+					`With non linear PC` = if(W_non_linear_PC) apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_NL_PC+study_design[,"Population"], family = binomial)))[,4][2])))}
 			
 			cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
+			counter = 0
+			nb_aa = ncol(aa)
 			res = parApply(cl,AA.data, 2, analyse_AA)
 			stopCluster(cl)
 			
