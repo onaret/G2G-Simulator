@@ -1,6 +1,6 @@
-source("G2G.R")
+#source("G2G.R")
 
-test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bias=NA, fst_strain_strat=NA, fst_strain_bias=NA, tag = "unnamed", get_viral = generate_AAs_standard, sup_SNP_for_PC = NULL) {
+test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bias=NA, fst_strain_strat=NA, fst_strain_bias=NA, tag = "unnamed", get_viral = generate_AAs_standard, sup_SNP_for_PC = NA) {
 	#scenario_name = paste0(deparse(substitute(scenario)), if(!is.null(tag)) paste0("_", tag))
 	#tag_me <- function(param) ifelse(is.na(param),"", paste(deparse(substitute(param)), round(param, digits=3), sep = "-"))
 	#tag = paste(tag, tag_me(fst_pop_strat), tag_me(fst_pop_bias), tag_me(fst_strain_strat), tag_me(fst_strain_bias), "beta",scenario$beta, nrow(study_design), sep = "_")
@@ -17,14 +17,11 @@ test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bia
 		       associated_SNPs = as.matrix(snp.data), generate_AAs = get_viral)})
 	
 	threshold <<- 0.05/((ncol(SNP)*ncol(AA)))
-	
-	host_pc = if(!is.null(sup_SNP_for_PC)) prcomp(cbind(SNP, sup_SNP_for_PC), scale. = FALSE) else NULL
-	save(host_pc, file = "scenario1")
-	save(host_pc,scenario,study_design,AA,SNP, file = "scenario1")
+	host_pc = if(!is.na(sup_SNP_for_PC)) prcomp(cbind(SNP, do.call(rbind, sup_SNP_for_PC)), scale. = FALSE) else NULL
 	res = analyse_G2G_setup(SNP, AA, study_design, host_pc)
 	df = as.data.frame(t(do.call(rbind, lapply(res$pvalues, function(cor) cor$pval))))
-	res = list(`study_design` = study_design, `pvalues` = res$pvalues, `scenario` = scenario, `pvalues_short` = df) 
-	write_G2G_setup(res, tag_cm, paste0(getwd(),"/../gen-data/",tag,"/" ))
+	res = list(`study_design` = study_design, `pvalues` = res$pvalues, `scenario` = scenario, `pvalues_short` = df, `host_pc` = host_pc, `AA` = AA, `SNP` = SNP) 
+	write_G2G_setup(res, tag_cm, paste0(getwd(),"/gen-data/",tag,"/" ))
 	
 	invisible(res)}
 

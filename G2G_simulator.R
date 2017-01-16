@@ -16,5 +16,8 @@ dir.create("gen-data", showWarnings = F, recursive = F, mode = "0777")
 trace <- TRUE
 
 #nb_cpu = 2
+#source("https://bioconductor.org/biocLite.R")
+#biocLite()
+#biocLite(c("tidyr", "dplyr", "parallel", "ggplot2", "SKAT", "globaltest"))
 
 

@@ -22,15 +22,15 @@ G2G_conf<- function(...,bio_tag=NA, replicate = 1) {
   calls = match.call(expand.dots = FALSE)$`...`
   
   #Should be cleaned, first time using functionnal patern
-  res = lapply(paste0(bio_tag,"_", 1:replicate), function(bio_tag) {
+  res = lapply(1:replicate, function(bio_tag_suffix) {
     lapply(calls, function(call){
       if(call[1] == "SNP()" || call[1] == "AA()") {
-        call$bio_tag = bio_tag
+        call$bio_tag = if(!is.na(bio_tag)) paste(bio_tag, bio_tag_suffix, sep = "_") else paste(call$bio_tag, bio_tag_suffix,sep = "_")
         eval(call)}
       else if(call[1] == "association()"){
         call_mod = lapply(call[2:length(call)], function(ass_call){
           if(ass_call[1] == "SNP()" || ass_call[1] == "AA()") {
-            ass_call$bio_tag = bio_tag
+            ass_call$bio_tag = if(!is.na(bio_tag)) paste(bio_tag, bio_tag_suffix, sep = "_") else paste(ass_call$bio_tag, bio_tag_suffix,sep = "_")
             ass_call}
           else(ass_call)})
         do.call(association, call_mod)}
@@ -60,7 +60,7 @@ AA <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased =
       do.call(rbind, lapply(beta, function(beta) {
         id =  get_id("AA",size)
         id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias, beta)
-        #bio_tag = if(is.character(bio_tag)) setNames(list(id), bio_tag) else generate_biological_tag(size, bio_tag,id)
+#        bio_tag = if(is.character(bio_tag)) setNames(list(id), bio_tag) else generate_biological_tag(size, bio_tag,id)
         data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias),
                    Associated_Strains= list(associated_strains), Associated_Populations = list(associated_populations), beta, `fst_strat` = fst_strat, `fst_bias` = fst_bias, size, id = list(id), id_tag, bio_tag)}))}))})))}
 
@@ -69,7 +69,7 @@ SNP <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased 
     do.call(rbind, lapply(fst_bias, function(fst_bias) {
       id =  get_id("SNP",size)
       id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias)
-      #bio_tag = if(is.character(bio_tag)) setNames(list(id), bio_tag)  else generate_biological_tag(size, bio_tag, id)
+#      bio_tag = if(is.character(bio_tag)) setNames(list(id), bio_tag)  else generate_biological_tag(size, bio_tag, id)
       data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias), `fst_strat` = fst_strat, `fst_bias`= fst_bias, size, id = list(id), id_tag, bio_tag)}))})))}
 
 generate_id_tag <- function(fst_strat=NA, partial_strat=NA, fst_bias=NA, partial_bias=NA, beta=NA) {
@@ -132,11 +132,12 @@ analyse_G2G <- function(data, correction, analyse, nb_cpu = 1) {
   save(AA_PC, SNP_PC, AA_NL_PC, file ="PC-savestates.RData")
   
   count_ETA <- function() {
-    if(trace) print(paste0(Sys.time(),": On batch [", counter,"-",counter+nb_cpu,"] amino acids, on a total of ", nb_aa ," amino acids, ", (counter/nb_aa) * 100, "% has been done, ETA in ",
-                           round(nb_aa*((proc.time() - ptm)["elapsed"]/3600)/counter) %/% 24, " hours and ",
-                           round(nb_aa*((proc.time() - ptm)["elapsed"]/60)/counter) %% 60, " minutes"))
+    if(trace) print(paste0(Sys.time(),": Working on amino acids batch [", counter,"-",counter+nb_cpu,"], on a total of ", nb_aa ," amino acids, ", (counter/nb_aa) * 100, "% has been done, ETA in ",
+       trunc((nb_aa - counter)/(counter/((proc.time() - ptm)["elapsed"]))) %/% 86400, " Day(s), ",
+       trunc(((nb_aa - counter)/(counter/((proc.time() - ptm)["elapsed"]))) %/% 3600) %% 24, " Hour(s), ",
+       round(((nb_aa - counter)/(counter/((proc.time() - ptm)["elapsed"]))) %/% 60) %% 60, " Minute(s)"))
     counter <<- counter + nb_cpu}
-  
+
   logistic_analyse <- function() {
     if(trace) print(paste(Sys.time(),": Computing logisic regression with ",  nb_cpu, " CPU(s)"))
     analyse_AA <- function(Y) {
@@ -154,6 +155,7 @@ analyse_G2G <- function(data, correction, analyse, nb_cpu = 1) {
     counter <<- 0
     nb_aa <<- ncol(AA.data)
     ptm <<- proc.time()
+    #cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
     cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
     res = parApply(cl,AA.data, 2, analyse_AA)
     #mcmapply(analyse_AA, as.data.frame(AA.data), as.data.frame(SNP.data), mc.cores = nb_cpu)
@@ -269,7 +271,7 @@ analyse_G2G <- function(data, correction, analyse, nb_cpu = 1) {
     if(skat_LW | skat_L | skato_LW | skato_L) `Skat` = SKAT_analyse())
   
   #save(AA_PC, SNP_PC, res, AA.data,SNP.data, AA.scenarios, SNP.scenarios, file ="res-savestates.RData")
-  if(trace) print(paste(Sys.time(),": Analysis took ", (proc.time() - ptm)["elapsed"]/60, "minutes"))
+  if(trace) print(paste(Sys.time()," : Analysis took ", (proc.time() - ptm)["elapsed"]/60, "minutes"))
   
   detach(data)
   detach(correction)
@@ -295,7 +297,7 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
         res = arrange(res,associated)
         p <- ggplot(res, aes(SNP, pvalue, shape=associated))
         p + geom_point(aes(color=SNP_Gene)) + geom_hline(yintercept = -log10(threshold), color = "red") + labs(title = "G2G Uncollapsed Logistic regression results", x = "SNP")
-        ggsave(filename = paste0(getwd(), "/../gen-data/",file_tag,analyse, "-",correction,".png"), dpi = 300)}))}
+        ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, "-",correction,".png"), dpi = 300)}))}
     
     else if(analyse == "skat-L" | analyse == "skato-L"|analyse == "skato-LW"| analyse == "skat-LW" | analyse == "gt") {
       res = res[[analyse]]
@@ -315,7 +317,7 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
         res = arrange(res,associated)
         p <- ggplot(res, aes(SNP_Gene, pvalue, color = AA_Position, size=associated))
         p + geom_point() + geom_hline(yintercept = -log10(threshold), colour = "red") + labs(title = paste0("Collapsed on SNP in human side with ",analyse), x = "SNP Gene")
-        ggsave(filename = paste0(getwd(), "/../gen-data/",file_tag,analyse, "-",correction,".png"), dpi = 300)}))}
+        ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, "-",correction,".png"), dpi = 300)}))}
     
     else if(analyse == "G2"){
       res = res[[analyse]]
@@ -333,7 +335,7 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
       p <- ggplot(res, aes(SNP_Gene, pvalue, color = AA_Position, size=associated))
       p + geom_point() + geom_hline(yintercept = -log10(threshold), colour = "red") + labs(title = paste0("Collapsed on SNP in human side and AA in viral side with G2"), x = "SNP Gene")
       #     theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
-      ggsave(filename = paste0(getwd(), "/../gen-data/",file_tag,analyse, ".png"), dpi = 300)}}))}
+      ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, ".png"), dpi = 300)}}))}
 
 get_association_AA_SNP_tag <- function(AA.scenario,res) {
   as.data.frame(
@@ -416,7 +418,7 @@ plot_pvalue_by_methods <- function(res, AA.scenarios) {
     geom_hline(data = thresholds, aes(yintercept = pvalue, colour = collapsing)) + 
     labs(title = "pvalue distribution for association in function of collapsing or framework", x = "Framework") + 
     theme(axis.text = element_blank())
-  ggsave(filename = paste0(getwd(), "/../gen-data/","framework-pvalue-dist",".png"), dpi = 300)}
+  ggsave(filename = paste0(getwd(), "/gen-data/","framework-pvalue-dist",".png"), dpi = 300)}
 
 ###Optional
 plot_median_pvalue_trend <- function(res) {
@@ -460,7 +462,7 @@ plot_median_pvalue_trend <- function(res) {
     geom_hline(data = thresholds, aes(yintercept = pvalue, colour = collapsing)) + 
     labs(title = "pvalue trend in function of associated SNP number, for the different collapsing or framework", x = "associated SNP") + 
     theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=18,face="bold"), plot.title = element_text(size = 18))
-  ggsave(filename = paste0(getwd(), "/../gen-data/","framework-trend",".png"), dpi = 300)}
+  ggsave(filename = paste0(getwd(), "/gen-data/","framework-trend",".png"), dpi = 300)}
 
 
 get_thresholds <- function(res) {
