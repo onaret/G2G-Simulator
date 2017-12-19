@@ -1,21 +1,20 @@
 # Introduction
 This tool has been developed to simulate*G2G* analysis.  
 
-G2G or genome-to-genome analysis is a joint analysis of host and pathogen genomes, that study side by side correlation between host and pathogen systematic variation.  
+G2G or genome-to-genome analysis is a joint analysis of host and pathogen genomes that study side by side correlation between host and pathogen systematic variation.  
 
 # Load tool
 
 ```R
-source("src/G2G_simulator.R")
+source("G2G_simulator.R")
 ```
 
 # Simulate GWAS Case-Control Study
 
-#### Setup the study
-First you need to generate a population structure.  
-Here there is two human groups P1 and P2.  
-P1 is distributed like 200 individuals are in case group and 400 in control group.  
-P2 is distributed like 400 individuals are in case group and 200 in control group.  
+#### Define population
+Here we want two subpopulations P1 and P2.  
+* From P1, 200 individuals are in case group and 400 in control group.  
+* From P2, 400 individuals are in case group and 200 in control group.  
 
 ```R
 my_population = generate_population_for_GWAS(list(
@@ -23,25 +22,24 @@ my_population = generate_population_for_GWAS(list(
 	`P2` = c(`case` = 400, `control`  = 200)))
 ```
 
-#### Run the GWAS analysis
-Number of neutral SNP is  100000  
-On this 5% will be stratified  
-20 non stratified causal SNP will be added with R coefficient between 1 and 2  
-20 stratified causal SNP will be added with R coefficient between 1 and 2   
-Fixation coefficient for making stratification strength is 0.2  
+#### Define genotyping data & run analysis
+Here we want 100,040 SNPs, neutrals and causals, stratified or not
+* Number of neutral SNP is 100,000  
+* On this 5% will be stratified  
+* 20 non stratified causal SNP will be added with R coefficient between 1 and 2  
+* 20 stratified causal SNP will be added with R coefficient between 1 and 2   
+* Fixation coefficient for making stratification strength is 0.2  
 
 ```R
 GWAS_result = GWAS_scenario(populations = my_population, 
-											 neutral = 100000, 
-											 neutral_S_rate = 0.05, 
-											 causal_NS = seq(1,2, by = 0.05), 
-											 causal_S = seq(1,2, by = 0.05), 
-											 fst_strat = 0.2)
+ neutral = 100000, 
+ neutral_S_rate = 0.05, 
+ causal_NS = seq(1,2, by = 0.05), 
+ causal_S = seq(1,2, by = 0.05), 
+ fst_strat = 0.2)
 ```
 
-#### Exploit results
-GWAS_result is a list containing different trace of the execution  
-
+#### Plot results
 Plot the results with 3 different conditions :
 * Without correction
 * With human groups
@@ -55,8 +53,6 @@ plot_GWAS_manhattan(GWAS_result)
 
 ![plot_GWAS_manhattan()](doc/GWAS_m.png "Manhattan plot of GWAS without correction")
 
-
-
 On QQ plotes
 
 ```R
@@ -67,9 +63,8 @@ plot_GWAS_QQ(GWAS_result)
 
 # Simulate G2G setup
 
-#### Setup the study design
-Describe your study design in terms of population and strain distribution.  
-Population P1 and P2 has the same amount of sample (2500 each) but in P1 1500 samples has strain A and 1000 has strain B and conversely in P2.  
+#### Define host's and pathogen's sub-populations distribution
+Here host sub-population P1 and P2 have the same amount of samples (2500 each) but in P1 1500 samples have strain A and 1000 have strain B and conversely in P2 1000 samples have strain A and 1500 have strain .  
 
 ```R
 study_design = to_study_design(list(
@@ -81,50 +76,51 @@ study_design = to_study_design(list(
 
 **rep** is the number of repetition you want to execute to draw the pvalue distribution.  
 
-**s_stratified** is the stratification you want to set in **S**NP on **human population**. The order give the stratification gradient.  
+**s_stratified** is a vector defining the stratification direction you want to set for **S**NP between **human sub-populations**. The order of sub-population defined in the vector give the stratification strength direction. Similar properties apply for the 3 parameters set forth bellow.   
 > eg : here there will be more alternate allele in population P1 than population P2.
 
-**s_biased** is the biased you want to set in **S**NP in function of **pathogen population**. The order give the bias gradient.  
-> eg : Here there will be more alternate allele in sample that has strain A than strain B. 
-
-**s_partial_bias** if the biased you set in **S**NP occurs in a specific **human population**. It require s_biased to be defined.  
-> eg : Here the bias between strain A and B will occurs only in population P1.
-
-**s_partial_strat** if the stratification you set in **S**NP occurs in a specific **pathogen population** It require s_stratified to be defined.  
+**s_biased** is the stratification you want to set for **S**NP between **pathogen strains**.  
+> eg : Here there will be more alternate allele in sample that has strain A than strain B.
 
 Similarly with viral side...  
-**a_stratified** is the stratification you want to set in **A**AVP on pathogen population. The order give the stratification gradient. >here there will be more alternate amino acid in strain A than in strain B.  
+**a_stratified** is the stratification you want to set for p**a**thogen variant between **pathogen strains**.  
 
-**a_biased** is the bias you want to set in **A**AVP in function of human population. The order give the bias gradient.  
+**a_biased** is the stratification you want to set for p**a**thogen variant between **human sub-populations**.  
 
-**a_partial_strat** if the stratification you set in **A**AVP occurs in a specific **human population**. It require a_stratified to be defined.  
+**associated_strains** in case of association it define the pathogen strain associated.  
 
-**a_partial_bias** if the biased you set in **A**AVP occurs in a specific **pathogen population**. It require a_biased to be defined.  
-
-**associated_strains** in case of association this is pathogen population associated (if omitted all strained are associated)  
-
-**associated_populations** in case of association this is the human population associated (if omitted all strained are associated)  
+**associated_populations** in case of association it define the the human sub-population associated.  
 
 ```R
-G2G_setup = get_G2G_setup(rep = 1000, s_stratified = c("P1","P2"), s_biased = c("A","B"), s_partial_bias = c("P1"), a_stratified = c("A","B"))
+G2G_setup = get_G2G_setup(rep = 1000, 
+  s_stratified = c("P1","P2"), 
+  s_biased = c("A","B"), 
+  s_partial_bias = c("P1"), 
+  a_stratified = c("A","B"))
 ```
 
 #### Run G2G Setup
-**fst_pop_strat** is the fixation coefficient that define strength for human population stratification (must be set if s_stratified is defined in scenario)
+**fst_pop_strat** is the fixation coefficient that define strength for SNPs stratification between human sub-population stratification.   
 
-**fst_pop_bias** is the fixation coefficient that define bias for human population bias (must be set if s_biased is defined in scenario)
+**fst_pop_bias** is the fixation coefficient that define strength for SNPs stratification between pathogen strains.   
 
-**fst_strain_strat** is the fixation coefficient that define strength for pathogen population stratification (must be set if a_stratified is defined in scenario)
+**fst_strain_strat** is the fixation coefficient that define strength for pathogen variant stratification between pathogen strains.  
 
-**fst_strain_bias** is the fixation coefficient that define bias for pathogen population bias (must be set if a_biased is defined in scenario)
+**fst_strain_bias** is the fixation coefficient that define strength for pathogen variant stratification between human sub-population.  
 
-**beta** if there is association set the log of odd ratio
+**beta** if there is an association set the log of odd ratio.  
+
+**tag** folder name to save results.  
 
 ```R
-test_G2G_setup(study_design, G2G_setup, fst_pop_strat = 0.2, fst_pop_bias = 0.2, fst_strain_strat = 0.2)
+test_G2G_setup(study_design, G2G_setup, 
+  fst_pop_strat = 0.2, 
+  fst_pop_bias = 0.2, 
+  fst_strain_strat = 0.2,
+  tag = 'demo')
 ```
 
-The results are automatically plot. There is too type of it at different scale. With pvalues, and with pvalues difference relative to particular correction.  
+The results are automatically ploted in the **tag** folder.  
 
 ![test_G2G_setup()](doc/G2G_setup.png "G2G setup")
 
@@ -132,56 +128,72 @@ The results are automatically plot. There is too type of it at different scale. 
 
 #### Define you data
 
-Similarly to G2G setup simulation, define study design in term of population and strain distribution  
+Similarly to G2G setup simulation, define study design in term of population and strain distribution.   
+
 ```R
-study_design =  to_study_design(list(`P1` = c(`A` = 250, `B` = 250), `P2` = c(`A` = 250, `B`  = 250)))
+study_design =  to_study_design(list(
+  `P1` = c(`A` = 250, `B` = 250), 
+  `P2` = c(`A` = 250, `B`  = 250)))
 ```
 
-Here we describe the datas we want to generates in terms of SNPs and AAVPs pattern of distribution across samples, and association.  
-This is described as a functional composition.  
-
-**parse_G2G_config()** will wrap this description, the first argument has to be the study design element, then it will be a undefined number of G2G_conf() function.  
-
-**G2G_conf()**  combine **SNP()**, **AA()**, **association()** and a number of time to replicate the pattern.
-
->eg here the described pattern will be repeated 5 times
-
-**SNP()** :
-* **size** : the number of SNPs you want, the only mandatory parameter
-* **stratified**, **partial_strat**, **biased**, **partial_bias**
-
-**AA()** :
-* **size** : the number of AAVPs you want, the only mandatory parameter
-* **stratified**, **partial_strat**, **biased**, **partial_bias**
-* **associated_strains**,  **associated_populations**, **beta** in case of association if inside the association() function (see bellow)
-
-**association()** combine **SNP()**, **AA()** that will be associated
-
-**bio_tag** a marker for the pattern that will be suffixed by the number of the repetition to make the different groups.
-
->eg here there will be 5 groups of this from tag_1, tag_2 ...  to tag_5
-
-When collapsing, this is will occurs on a group  
-
->eg here there will be 5 groups of 41 SNP each (10 + 31 SNPs).
+Here we describe stepwise the data we want to generate as a composition of functions.  
 
 ```R
-omics_data = parse_G2G_config(
+G2G_sample_data =	parse_G2G_config(
 	study_design,
 	G2G_conf(
 		association(
-			SNP(size = 10),
-			AA(
-				size = 8,
+			SNP(1),
+			AA(1,
 				associated_strains = "full",
 				associated_populations = "full",
-				beta = c(0.1))),
-		SNP(31),
-		bio_tag = "tag",
-		replicate = 5))
+				stratified = "full",
+				fst_strat = 0.2,
+				beta = 0.5,
+				bio_tag = 'tag'),
+			replicate = 100),
+		SNP(100, stratified = "full", fst_strat = 0.2),
+		SNP(800)))
 ```
 
+**parse_G2G_config**(**study_design**, **G2G_conf()**) the first argument has to be the study design element, then it will be a undefined number of G2G_conf() function calls (one is standard).  
+
+**G2G_conf**(**...**, replicate = 1) combine **SNP()**, **AA()**, **association()** function calls, and a number of time to replicate the pattern.  
+
+> eg here the described pattern will be repeated 5 times
+
+**SNP**(**size**, stratified = NA, fst_strat=NA, biased = NA, fst_bias=NA, bio_tag=NA)  
+* **size** : the number of SNPs
+* **stratified**, similar to *s_stratified*
+* **biased**, similar to *s_biased*
+* **fst_strat**, similar to *fst_pop_strat*
+* **fst_bias**, similar to *fst_pop_bias*
+
+**AA**(**size**, stratified = NA, fst_strat=NA, biased = NA, fst_bias=NA, associated_strains = NA, associated_populations =NA, beta=NA, bio_tag=NA)  
+* **size** : the number of pathogen variants  
+* **stratified**, similar to *a_stratified*
+* **biased**, similar to *a_biased*
+* **fst_strat**, similar to *fst_strain_strat*
+* **fst_bias**, similar to *fst_strain_bias*
+* **associated_strains**, similar to  *associated_strains*  
+* **associated_populations**, similar to *associated_strains*   
+* **beta** in case of association if inside the association() function (see bellow)
+
+**association(...)** combine **SNP()**, **AA()** that will be associated
+
+**bio_tag** a marker taht will be associated with the repetitions to make the different groups.
+
+
+
 #### Run the G2G analysis
+*NOTE:only logistic regression is still maintained*  
+
+```R
+analyse_G2G(G2G_sample_data,
+  correction(WO_correction = T, W_human_PC = T, W_strain_group = T, W_strain_groups_human_PC = T), 
+  analyse(logistic = T), 
+  nb_cpu = 40)
+```
 
 **analyse** is a vector containing the different analytic methods to run on the dataset
 * **logistic** : will run logistic regression
@@ -190,23 +202,13 @@ omics_data = parse_G2G_config(
 * **skato-L** : will collapse on human side and run skato
 * **G2** : will collapse on both sides and run G2
 
-Each of the type of correction is by default turned off, and can activated by passing following arguments :
+**correction** is a vector containing the different correction methods to apply
 * **WO_correction** : no correction
-* **W_human_group**: with human groups
 * **W_strain_group**: with strain groups
-* **W_both_groups**: with both groups
 * **W_human_PC**: with 5 first PCs from SNPs data (imputed human groups)
-* **W_strain_PC**: with 5 first PCs from AAPVs data (imputed strain groups)
-* **W_both_PC**: with 5 first PCs from SNPs data and AAPVs data
 * **W_strain_groups_human_PC**: with 5 first PCs from SNPs data and strain groups
-* **W_non_linear_PC**: with 5 first non linear PCs from AAPVs data
 
 **nb_cpu** : number of available CPU to use
-
-```R
-G2G_result = analyse_G2G(omics_data, study_design, WO_correction = T, analyse = c("logistic", "gt", "skat-L","skato-L",  "G2"), nb_cpu = 30)
-```
-
 
 #### Plot results
 
@@ -228,7 +230,6 @@ plot_pvalue_by_methods(G2G_result, AA.scenarios = omics_data$AA.scenarios)
 #### Another example of G2G without collapsing purpose
 Here we did not defined bio_tag as it is unnecessary, because we do not need the concept of groups. Also we added repetition in the association() function.  
 
-
 ```R
 omics_data =	parse_G2G_config(
 	study_design,
@@ -249,4 +250,4 @@ omics_data =	parse_G2G_config(
 res = analyse_G2G(omics_data, study_design, analyse = c("logistic"), WO_correction = T, W_human_PC = T, W_strain_PC = T, W_both_PC = T, W_strain_group = T, W_strain_groups_human_PC = T, nb_cpu = 30)
 ```
 
-
+See the script in paper/parse_paper_dataser.R for ploting those results  

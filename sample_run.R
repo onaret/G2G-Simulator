@@ -78,26 +78,3 @@ res = analyse_G2G(data = G2G_sample_data,
                   analyse = analyse(logistic = T), 
                   correction = correction(WO_correction = T, W_human_PC = T, W_strain_PC = T, W_both_PC = T, W_strain_group = T, W_strain_groups_human_PC = T),
                   nb_cpu = 2)
-
-###Collapsing study
-study_design =  to_study_design(list(`P1` = c(`A` = 250, `B` = 250), `P2` = c(`A` = 250, `B`  = 250)))
-
-data_purer = parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(10),
-			AA(8,
-				associated_strains = "full",
-				associated_populations = "full",
-				beta = c(0.1))),
-		SNP(31),
-		bio_tag = "fs2_ss1",
-		replicate = 5))
-
-res = analyse_G2G(data_purer, WO_correction = T, analyse = c("logistic", "gt", "skat-L","skato-L",  "G2"), nb_cpu = nb_cpu)
-plot_collapsed_G2G(res, AA.scenarios = data_purer$AA.scenarios)
-plot_pvalue_by_methods(res, AA.scenarios = data_purer$AA.scenarios)
-
-res = analyse_G2G(data_purer, WO_correction = T, analyse = c("logistic"), nb_cpu = nb_cpu)
-plot_G2G_on_tags(res, AA.scenarios = data_purer$AA.scenarios, SNP.scenarios = data_purer$SNP.scenarios)

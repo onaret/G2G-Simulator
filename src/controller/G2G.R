@@ -48,6 +48,7 @@ get_G2G_setup <- function(rep, s_stratified = NA, s_partial_strat = NA, s_biased
 #TODO: add a "s" to method parse_G2G_config, it allow to make different G2G_config and replicate them.
 #TODO: Remove use of environnement variable using recursive approach
 #TODO merge parse_G2G_conf with analyze_G2G
+#TODO beta in association()
 
 #@`...`: G2G_conf()
 parse_G2G_config <- function(study_design, ...) {
