@@ -183,8 +183,6 @@ G2G_sample_data =	parse_G2G_config(
 
 **bio_tag** a marker taht will be associated with the repetitions to make the different groups.
 
-
-
 #### Run the G2G analysis
 *NOTE:only logistic regression is still maintained*  
 
@@ -194,7 +192,6 @@ analyse_G2G(G2G_sample_data,
   analyse(logistic = T), 
   nb_cpu = 40)
 ```
-
 **analyse** is a vector containing the different analytic methods to run on the dataset
 * **logistic** : will run logistic regression
 * **gt** : will collapse on human side and run global test
@@ -210,44 +207,4 @@ analyse_G2G(G2G_sample_data,
 
 **nb_cpu** : number of available CPU to use
 
-#### Plot results
-
-Will draw Manhattan plot for each analysis  
-```R
-plot_collapsed_G2G(G2G_result, AA.scenarios = omics_data$AA.scenarios)
-```
-![plot_collapsed_G2G()](doc/logistic.png "logistic.png")
-![plot_collapsed_G2G()](doc/gt.png "gt.png")
-![plot_collapsed_G2G()](doc/G2.png "G2.png")
-
-Will draw the distribution of associated relation for each of the different used methods  
-```R
-plot_pvalue_by_methods(G2G_result, AA.scenarios = omics_data$AA.scenarios)
-```
-
-![plot_pvalue_by_methods()](doc/methods_compare.png "methods_compare.png")
-
-#### Another example of G2G without collapsing purpose
-Here we did not defined bio_tag as it is unnecessary, because we do not need the concept of groups. Also we added repetition in the association() function.  
-
-```R
-omics_data =	parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(1),
-			AA(
-				1,
-				associated_strains = "full",
-				associated_populations = "full",
-				stratified = "full",
-				fst_strat = 0.2,
-				beta = 0.5),
-			replicate = 100),
-		SNP(100, stratified = "full", fst_strat = 0.2),
-		SNP(800)))
-
-res = analyse_G2G(omics_data, study_design, analyse = c("logistic"), WO_correction = T, W_human_PC = T, W_strain_PC = T, W_both_PC = T, W_strain_group = T, W_strain_groups_human_PC = T, nb_cpu = 30)
-```
-
-See the script in paper/parse_paper_dataser.R for ploting those results  
+See the script in paper/parse_paper_dataser.R to plot the result
