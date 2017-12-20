@@ -128,6 +128,7 @@ manhattan_plot_subres <- function(results) {
 manhattan_plot_subres(results)
 
 ######Web-app specific Manhattan plot
+#TODO: reupdate cross tag to make appearant PG and FP for sb SNP and pathogen variant
 spec = unique(results$cross_tag)
 spec = spec[c(4,1,3,2,5,6)]
 plotter = data.frame(`spec` = spec, 
@@ -151,7 +152,8 @@ manhattan_plot_webapp <- function(plotter, results, cor_tag, nb_cpu_outter_loop,
                    data = subset(results, (cross_tag == plotter[idx,'spec']))) +
         geom_hline(yintercept = -log10(threshold), color = "black", linetype = 2) + 
         coord_cartesian(ylim = ylim) +
-        theme(plot.title = element_blank(), axis.text = element_blank(), axis.title = element_blank(), legend.position='none')
+        labs(title = paste0("Manhattan plot webapp - ", plotter[idx,'tag']), x = "SNP", y = "AA association score on negative log scale")
+        #theme(plot.title = element_blank(), axis.text = element_blank(), axis.title = element_blank(), legend.position='none')
       ggsave(filename = paste0("gen-data/manhattan-webapp - ",plotter[idx,'tag'],"_",cor_tag,".png"), dpi = 300) }))
     stopCluster(cl2) }))
   stopCluster(cl1) }

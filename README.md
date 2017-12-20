@@ -12,7 +12,7 @@ source("G2G_simulator.R")
 # Simulate GWAS Case-Control Study
 
 #### Define population
-Here we want two subpopulations P1 and P2.  
+Here we want two sub-populations P1 and P2.  
 * From P1, 200 individuals are in case group and 400 in control group.  
 * From P2, 400 individuals are in case group and 200 in control group.  
 
@@ -23,7 +23,7 @@ my_population = generate_population_for_GWAS(list(
 ```
 
 #### Define genotyping data & run analysis
-Here we want 100,040 SNPs, neutrals and causals, stratified or not
+Here we want 100,040 SNPs, neutral and causal, stratified or not
 * Number of neutral SNP is 100,000  
 * On this 5% will be stratified  
 * 20 non stratified causal SNP will be added with R coefficient between 1 and 2  
@@ -53,7 +53,7 @@ plot_GWAS_manhattan(GWAS_result)
 
 ![plot_GWAS_manhattan()](doc/GWAS_m.png "Manhattan plot of GWAS without correction")
 
-On QQ plotes
+On QQ plots
 
 ```R
 plot_GWAS_QQ(GWAS_result)
@@ -120,7 +120,7 @@ test_G2G_setup(study_design, G2G_setup,
   tag = 'demo')
 ```
 
-The results are automatically ploted in the **tag** folder.  
+The results are automatically plotted in the **tag** folder.  
 
 ![test_G2G_setup()](doc/G2G_setup.png "G2G setup")
 
@@ -136,7 +136,7 @@ study_design =  to_study_design(list(
   `P2` = c(`A` = 250, `B`  = 250)))
 ```
 
-Here we describe stepwise the data we want to generate as a composition of functions.  
+Here we describe step-wise the data we want to generate as a composition of functions.  
 
 ```R
 G2G_sample_data =	parse_G2G_config(
@@ -181,7 +181,7 @@ G2G_sample_data =	parse_G2G_config(
 
 **association(...)** combine **SNP()**, **AA()** that will be associated
 
-**bio_tag** a marker taht will be associated with the repetitions to make the different groups.
+**bio_tag** a marker that will be associated with the repetitions to make the different groups.
 
 #### Run the G2G analysis
 *NOTE:only logistic regression is still maintained*  
