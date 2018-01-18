@@ -1,7 +1,10 @@
-source("../G2G_simulator.R")
+#IMPORTANT: First set the working directory to the path of the G2G-Simulator folder
+setwd("/home/onaret/G2G-Simulator")
+
+source("G2G_simulator.R")
 
 ###Here there causal SNP are straified with PG
-scenario5_V5 = analyse_G2G(
+G2G_generated = analyse_G2G(
   parse_G2G_config(
     to_study_design(list(
       `P1` = c(`A` = 1500, `B` = 1000), 
@@ -67,4 +70,4 @@ scenario5_V5 = analyse_G2G(
   correction(WO_correction = T, W_human_PC = T, W_strain_group = T, W_strain_groups_human_PC = T), 
   analyse(logistic = T), 
   nb_cpu = 47)
-save(scenario5_V5, file ="scenario5_V5.RData")
+save(G2G_generated, file ="G2G_generated.RData")

@@ -2,42 +2,18 @@
 setwd("/home/onaret/G2G-Simulator")
 
 source("G2G_simulator.R")
-
 library(dplyr)
 library(ggplot2)
 library(tidyr)
 library(parallel)
 
-# Here you can load a data you regenerated using 'G2G-Simulator/paper/generate_paper_dataset.R' or 
-# the results in the paper itself 'G2G-simulator-generated-data.RData'available at https://zenodo.org/record/1100977
+#Load 'G2G_generated.RData', the data generated for the simulation by 
+# - Running the script 'G2G-Simulato/paper/generate_paper_dataset.R', 
+#   to generate a new dataset in 'G2G-Simulator/gen-data' with the same parameters as the one in the paper 
+# - Downloading from zenodo at https://zenodo.org/record/1154600, 
+#   to use the exact same dataset as the one in the paper
 
-####IMPORTANT TEMPORARY NOTE: If you use this dataset, please run the following lines of code before.
-# A new updated version will be uploaded with a new DOI for the paper before publishing
-# Why this lines? A leftover of some tests that are not discussed anymore in the paper need to be removed
-scenario5_V5$data$SNP.scenarios = scenario5_V5$data$SNP.scenarios[-(1:100),]
-scenario5_V5$data$AA.scenarios = scenario5_V5$data$AA.scenarios[-(1:100),]
-scenario5_V5$data$AA.scenarios$associated_SNPs[1:200] = as.list(1:200)
-
-scenario5_V5$data$AA.scenarios$id[1:200] = as.list(1:200)
-scenario5_V5$data$AA.scenarios$id[[201]] = c(201:300)
-scenario5_V5$data$AA.scenarios$id[[202]] = c(301:400)
-
-scenario5_V5$data$SNP.scenarios$id[1:200] = as.list(1:200)
-scenario5_V5$data$SNP.scenarios$id[[201]] = c(201:300)
-scenario5_V5$data$SNP.scenarios$id[[202]] = c(301:10300)
-scenario5_V5$data$SNP.scenarios$id[[203]] = c(10301:50300)
-
-scenario5_V5$results$logistic = scenario5_V5$results$logistic[-(1:100),-(4:103)]
-scenario5_V5$results$logistic = filter(scenario5_V5$results$logistic, !SNP %in% c(1:100))
-scenario5_V5$AA.scenarios$bio_tag = gsub("_1","", scenario5_V5$AA.scenarios$bio_tag)
-scenario5_V5$SNP.scenarios$bio_tag = gsub("_1","", scenario5_V5$SNP.scenarios$bio_tag)
-scenario5_V5$results$logistic$SNP = scenario5_V5$results$logistic$SNP - 100
-names(scenario5_V5$results$logistic) <- c("SNP", "SNP_Tag", "Correction", 1:400)
-
-G2G_generated = scenario5_V5
-####END
-
-load("G2G-Simulator/data/G2G-simulator-generated-data.RData")
+load("G2G-Simulator/gen-data/G2G_generated.RData")
 
 ####Make the results plot friendly
 results = G2G_generated$results$logistic
@@ -45,7 +21,7 @@ results = G2G_generated$results$logistic
 threshold = 0.05/((ncol(results)-3)*(nrow(results)/length(levels(results$Correction))))
 results = as.data.frame(results) %>% gather(AA, pvalue,-SNP, -Correction, -SNP_Tag, convert = T)
 
-SNP_nb = do.call(sum, as.list(G2G_generated$data$SNP.scenarios))
+SNP_nb = do.call(sum, as.list(G2G_generated$data$SNP.scenarios$size))
 results = cbind(
   `AA_biotag` = unlist(mapply(function(size, bio_tag) 
     rep(bio_tag, size * SNP_nb * length(levels(results$Correction))), 
@@ -70,12 +46,12 @@ analyse = "logistic"
 results$cross_tag = gsub("^Asso_Unstratified_AA.*", "Dummy", results$cross_tag)
 results$cross_tag = gsub(".*\\|Unstratified_SNP", "Dummy", results$cross_tag)
 
-#Whether it is associated or not is not something we want to see as a different label on plot
+#Whether it is associated or not isn't something we want to see as a different label on plot
 #this information will be displayed by dot shape from the 'results$associated' boolean
 results$cross_tag = gsub("^Asso_Stratified_Biased_AA_PG2\\|Stratified_SNP", "Stratified_biased_AA\\|Stratified_SNP", results$cross_tag)
 results$cross_tag = gsub("^Asso_Stratified_Biased_AA_PG2\\|Stratified_biased_SNP", "Stratified_biased_AA\\|Stratified_biased_SNP", results$cross_tag)
 
-######Boxplot plot 
+######Boxplot with pvalue in function of 4 different corrections
 boxplot_subres <- function(results,title) {
   levels(results$Correction)[1] = "Correcting on both sides"
   levels(results$Correction)[2] = "Correcting on host side"
@@ -104,7 +80,7 @@ boxplot_subres(filter(results, cross_tag == "Stratified_biased_AA|Stratified_bia
 boxplot_subres(filter(results, cross_tag == "Dummy" & associated == TRUE), "for non stratified causal association")
 boxplot_subres(filter(results, cross_tag == "Dummy" & associated == FALSE), "for non stratified non causal association")
 
-######General Manhattan plot 
+######General Manhattan plot with every category for the 4 different corrections
 manhattan_plot_subres <- function(results) {
   cl = makeCluster(4, type = "FORK")
   #Spread SNPs along x axis to make it looks better
