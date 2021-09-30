@@ -37,17 +37,17 @@ G2G_conf_data =	get_G2G_conf(
 
 #### Arguments: 
 * **SNP**, _fun_: SNP function call
-  * **description:** defines (a) SNP(s)
+  * **description:** defines (a) SNP(s). SNPs corresponding to the variations of the host side
   * **Usage:** SNP(size, stratified = NA, fst_strat=NA, biased = NA, fst_bias=NA, bio_tag=NA)
   * **Arguments:**
     * **size**, _int_: the number of SNPs
-    * **stratified**, _vector of strings_: host sub-population groups order give the direction of the stratification from higher MAF to lower MA
+    * **stratified**, _vector of strings_: host sub-population groups order give the direction of the stratification from higher MAF to lower MAF
     * **fst_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **stratified**
     * **biased**, _vector of strings_: include a bias such that, the pathogen strain groups are associated with host stratification (regardless of the defined sub-populations groups). The order gives the direction from higher MAF to lower MAF
     * **fst_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **biased**
 
 * **AA**, _fun_:  AA function call
-  * **description:** defines (an) AA(s)
+  * **description:** defines (an) AA(s). AAs for amino acids correspond to the variations on the pathogen side
   * **Usage:** AA(size, stratified = NA, fst_strat=NA, biased = NA, fst_bias=NA, beta=NA, bio_tag=NA)
   * **Arguments:**
     * **size**, _int_: the number of pathogen variant
