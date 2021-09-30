@@ -5,7 +5,7 @@ source("G2G_simulator.R")
 
 ###Here there causal SNP are straified with PG
 G2G_generated = analyse_G2G(
-  parse_G2G_config(
+  get_G2G_data(
     to_study_design(list(
       `P1` = c(`A` = 1500, `B` = 1000), 
       `P2` = c(`A` = 1000, `B` = 1500))),
@@ -17,8 +17,6 @@ G2G_generated = analyse_G2G(
           fst_strat = 0.2,
           biased = c("P1","P2"),
           fst_bias = 0.01,
-          associated_strains = "full",
-          associated_populations = "full",
           beta = 0.3,
           bio_tag = "Asso_Stratified_Biased_AA_PG2"),
         SNP(
@@ -32,8 +30,6 @@ G2G_generated = analyse_G2G(
       association(
         AA(
           size=1,
-          associated_strains = "full",
-          associated_populations = "full",
           beta = 0.3,
           bio_tag = "Asso_Unstratified_AA"),
         SNP(

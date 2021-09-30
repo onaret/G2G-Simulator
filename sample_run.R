@@ -58,23 +58,22 @@ causal_C = get_G2G_setup(1000, s_stratified = c("P2","P1"), s_biased = c("B","A"
 test_G2G_setup(study_design, causal_C, fst_pop_strat = 0.2, fst_strain_strat = 0.2, fst_pop_bias = 0.01, fst_strain_bias = 0.01, tag = "causal_C")
 
 ###Full G2G simulation
-study_design = to_study_design(list(`P1` = c(`A` = 1125, `B` = 625), `P2` = c(`A` = 1125, `B`  = 2150)))
-G2G_sample_data =	parse_G2G_config(
-	study_design,
-	G2G_conf(
-		association(
-			SNP(1),
-			AA(1,
-				associated_strains = "full",
-				associated_populations = "full",
-				stratified = "full",
-				fst_strat = 0.2,
-				beta = 0.5),
-			replicate = 100),
-		SNP(100, stratified = "full", fst_strat = 0.2),
-		SNP(800)))
+study_design = get_study_design(list(`P1` = c(`A` = 1125, `B` = 625), `P2` = c(`A` = 1125, `B`  = 2150)))
+G2G_conf = get_G2G_conf(
+  association(
+    SNP(1),
+    AA(1,
+       stratified = "full",
+       fst_strat = 0.2,
+       beta = 0.5),
+    replicate = 100),
+  SNP(100, stratified = "full", fst_strat = 0.2),
+  SNP(800), bio_tag = 'test')
 
-res = analyse_G2G(data = G2G_sample_data, 
-                  analyse = analyse(logistic = T), 
-                  correction = correction(WO_correction = T, W_human_PC = T, W_strain_PC = T, W_both_PC = T, W_strain_group = T, W_strain_groups_human_PC = T),
+G2G_data =	get_G2G_data(
+	study_design,
+	G2G_conf)
+
+res = analyse_G2G(data = G2G_data, 
+                  correction = get_correction(WO_correction = T, W_human_PC = T, W_strain_PC = T, W_both_PC = T, W_strain_group = T, W_strain_groups_human_PC = T),
                   nb_cpu = 2)

@@ -1,15 +1,30 @@
 ###G2G common methods
 to_pop_structure <- function(study_design) {
-  do.call(rbind, lapply(levels(study_design$Population), function(population) do.call(rbind, lapply(levels(study_design$Strain), function(strain) data_frame(strain,population, `nb` = sum(study_design[,"Strain"] == strain & study_design[,"Population"] == population))))))}
+  do.call(rbind, lapply(levels(study_design$Population), function(population) {
+    do.call(rbind, lapply(levels(study_design$Strain), function(strain) { 
+      data_frame(strain,population, `nb` = sum(study_design[,"Strain"] == strain & study_design[,"Population"] == population))
+    })) 
+  }))
+}
 
-to_study_design <- function(structure) {
+get_study_design <- function(structure) {
   structure = as.data.frame(structure)
-  do.call(rbind, lapply(1:ncol(structure), function(pop_num) {
+  study_design = do.call(rbind, lapply(1:ncol(structure), function(pop_num) {
     do.call(rbind, lapply(1:nrow(structure), function(strain_num) {
-      if(structure[strain_num,pop_num] > 0) data.frame(Population = paste0("P",pop_num), Strain = rep(chartr("123456789", "ABCDEFGHI", strain_num), structure[strain_num,pop_num]) ) }))})) }
+      if(structure[strain_num,pop_num] > 0) {
+        data.frame(Population = paste0("P",pop_num), Strain = rep(chartr("123456789", "ABCDEFGHI", strain_num), structure[strain_num,pop_num]) )
+      }
+    }))
+  }))
+  study_design$Population = as.factor(study_design$Population)
+  study_design$Strain = as.factor(study_design$Strain)
+  study_design
+}
+
 
 ###G2G single setup methods
-test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bias=NA, fst_strain_strat=NA, fst_strain_bias=NA, tag = "unnamed", sup_SNP_for_PC = NA) {
+test_G2G_setup <- function(study_design, scenario, fst_pop_strat=NA, fst_pop_bias=NA, fst_strain_strat=NA, fst_strain_bias=NA, 
+                           tag = "unnamed", sup_SNP_for_PC = NA) {
   #scenario_name = paste0(deparse(substitute(scenario)), if(!is.null(tag)) paste0("_", tag))
   #tag_me <- function(param) ifelse(is.na(param),"", paste(deparse(substitute(param)), round(param, digits=3), sep = "-"))
   #tag = paste(tag, tag_me(fst_pop_strat), tag_me(fst_pop_bias), tag_me(fst_strain_strat), tag_me(fst_strain_bias), "beta",scenario$beta, nrow(study_design), sep = "_")
@@ -41,7 +56,7 @@ get_G2G_setup <- function(rep, s_stratified = NA, s_partial_strat = NA, s_biased
                     s_partial_stratification = list(s_partial_strat), s_partial_bias = list(s_partial_bias),
                     a_stratified = list(a_stratified), a_biased = list(a_biased),
                     a_partial_stratification = list(a_partial_strat), a_partial_bias = list(a_partial_bias),
-                    associated_strains = list(associated_strains), associated_populations = list(associated_populations), beta, rep) )}
+                    associated_strains = list(associated_strains), associated_populations = list(associated_populations), beta, rep))}
 
 
 ###G2G full scenario methods
@@ -51,7 +66,7 @@ get_G2G_setup <- function(rep, s_stratified = NA, s_partial_strat = NA, s_biased
 #TODO beta in association()
 
 #@`...`: G2G_conf()
-parse_G2G_config <- function(study_design, ...) {
+get_G2G_data <- function(study_design, ...) {
   set_env("AA", 0)
   set_env("SNP", 0)
   #Turn it to calls list to set last AA_id and last SNP_id after last G2G_conf call
@@ -64,7 +79,7 @@ parse_G2G_config <- function(study_design, ...) {
 
 #Here receive last AA_id, last SNP_id, turn replicate to for loops to set last id after last AA or SNP call.
 #@`...`: AA() | SNP() | association()
-G2G_conf<- function(...,bio_tag=NA, replicate = 1) {
+get_G2G_conf <- function(..., bio_tag=NA, replicate = 1) {
   calls = match.call(expand.dots = FALSE)$`...`
   
   #Should be cleaned, first time using functionnal patern
@@ -72,15 +87,23 @@ G2G_conf<- function(...,bio_tag=NA, replicate = 1) {
     lapply(calls, function(call){
       if(call[1] == "SNP()" || call[1] == "AA()") {
         call$bio_tag = if(!is.na(bio_tag)) paste(bio_tag, bio_tag_suffix, sep = "_") else paste(call$bio_tag, bio_tag_suffix,sep = "_")
-        eval(call)}
+        eval(call)
+      }
       else if(call[1] == "association()"){
         call_mod = lapply(call[2:length(call)], function(ass_call){
           if(ass_call[1] == "SNP()" || ass_call[1] == "AA()") {
             ass_call$bio_tag = if(!is.na(bio_tag)) paste(bio_tag, bio_tag_suffix, sep = "_") else paste(ass_call$bio_tag, bio_tag_suffix,sep = "_")
-            ass_call}
-          else(ass_call)})
+            ass_call
+          }
+          else
+            ass_call
+        })
         do.call(association, call_mod)}
-      else {stop(paste0(call[1], " is not a valid function call"))}})})
+      else {
+        stop(paste0(call[1], " is not a valid function call"))
+      }
+    })
+  })
   ##Could merge scenario having same id_tag and different biotag, need to recalculate 'Size', and merge 'id'
   AA.scenarios = bind_rows(lapply(unlist(res,recursive =F), function(res) res$AA.scenarios))
   SNP.scenarios = bind_rows(lapply(unlist(res,recursive =F), function(res) res$SNP.scenarios))
@@ -100,20 +123,29 @@ association <- function(..., replicate = 1) {
     list(`AA.scenarios` = AA.scenarios, `SNP.scenarios` = SNP.scenarios)}, simplify = F)
   list(`AA.scenarios` = bind_rows(lapply(res, function(ele) ele$AA.scenarios)), `SNP.scenarios` = bind_rows(lapply(res, function(ele) ele$SNP.scenarios)))}
 
-AA <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, associated_strains = NA, associated_populations =NA, beta=NA, bio_tag=NA) {
+AA <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, 
+               associated_strains = NA, associated_populations = NA, beta=NA, bio_tag = NA) {
+  
+  if(!is.na(beta)) {
+    associated_strains = "full"
+    associated_populations = "full"
+  }
+  
   list(`AA.scenarios` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
     do.call(rbind, lapply(fst_bias, function(fst_bias) {
       do.call(rbind, lapply(beta, function(beta) {
-        id =  get_id("AA",size)
+        id =  get_id("AA", size)
         id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias, beta)
         #        bio_tag = if(is.character(bio_tag)) setNames(list(id), bio_tag) else generate_biological_tag(size, bio_tag,id)
-        data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias),
-                   Associated_Strains= list(associated_strains), Associated_Populations = list(associated_populations), beta, `fst_strat` = fst_strat, `fst_bias` = fst_bias, size, id = list(id), id_tag, bio_tag)}))}))})))}
+        data_frame(Stratified = list(stratified), Biased = list(biased), 
+                   Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias),
+                   Associated_Strains = list(associated_strains), Associated_Populations = list(associated_populations), 
+                   beta, `fst_strat` = fst_strat, `fst_bias` = fst_bias, size, id = list(id), id_tag, bio_tag)}))}))})))}
 
 SNP <- function(size, stratified = NA, partial_strat = NA, fst_strat=NA, biased = NA, partial_bias = NA, fst_bias=NA, bio_tag=NA) {
   list(`SNP.scenarios` = do.call(rbind, lapply(fst_strat, function(fst_strat) {
     do.call(rbind, lapply(fst_bias, function(fst_bias) {
-      id =  get_id("SNP",size)
+      id =  get_id("SNP", size)
       id_tag = generate_id_tag(fst_strat, partial_strat, fst_bias, partial_bias)
       #      bio_tag = if(is.character(bio_tag)) setNames(list(id), bio_tag)  else generate_biological_tag(size, bio_tag, id)
       data_frame(Stratified = list(stratified), Biased = list(biased), Partial_Stratification = list(partial_strat), Partial_Bias = list(partial_bias), `fst_strat` = fst_strat, `fst_bias`= fst_bias, size, id = list(id), id_tag, bio_tag)}))})))}

@@ -1,15 +1,4 @@
 ###G2G common methods
-get_study_design <- function(sample_size, nb_pop, nb_strain) {
-  get_structure <- function(sample_size, nb_substructure) {
-    if(length(nb_substructure)>1) sample(1:length(nb_substructure), size = sample_size, prob = nb_substructure, replace = T)
-    else sample(1:nb_substructure, size = sample_size, replace = T)}
-  pop_structure = as.factor(paste0("P", get_structure(sample_size, nb_pop)))
-  viral_pop_structure = as.factor(chartr("123456789", "ABCDEFGHI", get_structure(sample_size, nb_strain)))
-  study_design = data.frame(`Population` = pop_structure, `Strain` = viral_pop_structure)
-  study_design = arrange(study_design, Population, Strain)
-  rownames(study_design) <- paste0(1:nrow(study_design),"_Pop_", study_design$Population,"_Strain_", study_design$Strain)
-  study_design}
-
 get_AA <- function(study_design, AA.scenarios, SNP.data, associated_SNPs = NULL) {
   populations = levels(study_design$Population)
   strains = levels(study_design$Strain)
@@ -27,7 +16,7 @@ get_AA <- function(study_design, AA.scenarios, SNP.data, associated_SNPs = NULL)
         if(associated_strains == "full") strains
         else if(associated_strains == "half") sample(strains, 1)
         else associated_strains)
-    AA.freq = get_frequencies(AA.scenario, strains,populations)
+    AA.freq = get_frequencies(AA.scenario, strains, populations)
     ##If associated_SNPs is null we might be in a full G2G simulation
     associated_SNPs = if(is.null(associated_SNPs)) SNP.data[,unlist(AA.scenario$associated_SNPs), drop = F] 
       else associated_SNPs
@@ -110,8 +99,12 @@ get_frequencies <- function(scenario, main_subgroup, secondary_subgroup) {
       F_bias[!is.null(p_bias) & p_bias == 0] = rep(F_strat, each = nb_secondary_subgroup)[p_bias == 0]
       F_bias}))
   }
-  else 	{
-    do.call(rbind, replicate(scenario$size, rep(get_AF(runif(1, lower, upper), 0.02), nb_secondary_subgroup * nb_main_subgroup), simplify = F))}
+  else {
+    do.call(rbind, replicate(scenario$size, 
+                             rep(get_AF(runif(1, lower, upper), 0.02), 
+                                 nb_secondary_subgroup * nb_main_subgroup), 
+                             simplify = F))
+  }
   colnames(freq) <- paste0("F_", rep(main_subgroup, each = nb_secondary_subgroup),".", secondary_subgroup)
   freq}
 
@@ -219,167 +212,3 @@ set_env <- function(name, value) {
   args = list(value)
   names(args) = name
   do.call(Sys.setenv, args)}
-
-analyse_G2G <- function(data, correction, analyse, nb_cpu = 1) {
-  ##data contain both AA.data, SNP.data and study_design
-  attach(data)
-  attach(correction)
-  attach(analyse)
-  
-  if(trace) print(paste0(Sys.time()," : Computing PC"))
-  SNP_PC = if(W_human_PC || W_both_PC) {
-    SNP_PC = prcomp(SNP.data)
-    SNP_PC$x[,1:ifelse(ncol(SNP_PC$x)<5, ncol(SNP_PC$x), 5)]}
-  
-  AA_PC = if(W_strain_PC || W_both_PC){
-    AA_PC = prcomp(AA.data)
-    AA_PC$x[,1:ifelse(ncol(AA_PC$x)<5, ncol(AA_PC$x), 5)]}
-  
-  AA_NL_PC = if(W_non_linear_PC){
-    AA_NL_PC = homals(AA.data, ndims = 5)
-    matrix(unlist(AA_NL_PC$loadings), nrow = nrow(SNP), ncol = 5)} 
-  
-  #save(AA_PC, SNP_PC, AA_NL_PC, file ="PC-savestates.RData")
-  
-  count_ETA <- function() {
-    if(trace) print(paste0(Sys.time(),": Working on amino acids batch [", counter,"-",counter+nb_cpu,"], on a total of ", nb_aa ," amino acids, ", (counter/nb_aa) * 100, "% has been done, ETA in ",
-       trunc((nb_aa - counter)/(counter/((proc.time() - ptm)["elapsed"]))) %/% 86400, " Day(s), ",
-       trunc(((nb_aa - counter)/(counter/((proc.time() - ptm)["elapsed"]))) %/% 3600) %% 24, " Hour(s), ",
-       round(((nb_aa - counter)/(counter/((proc.time() - ptm)["elapsed"]))) %/% 60) %% 60, " Minute(s)"))
-    counter <<- counter + nb_cpu}
-  
-  logistic_analyse <- function() {
-    if(trace) print(paste(Sys.time(),": Computing logisic regression with ",  nb_cpu, " CPU(s)"))
-    analyse_AA <- function(Y) {
-      count_ETA()
-      c(if(WO_correction) list(`Without correction` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X)))[,4][2])),
-        if(W_human_group) list(`With human group` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"], family = binomial)))[,4][2])),
-        if(W_strain_group) list(`With strain group` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Strain"], family = binomial)))[,4][2])),
-        if(W_both_groups) list(`With both groups` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+study_design[,"Population"]+study_design[,"Strain"], family = binomial)))[,4][2])),
-        if(W_human_PC) list(`With human PC` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC, family = binomial)))[,4][2])),
-        if(W_strain_PC) list(`With strain PC` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_PC, family = binomial)))[,4][2])),
-        if(W_both_PC) list(`With both PC` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+AA_PC, family = binomial)))[,4][2])),
-        if(W_strain_groups_human_PC) list(`W_strain_groups_human_PC` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+SNP_PC+study_design[,"Strain"], family = binomial)))[,4][2])),
-        if(W_non_linear_PC) list(`With non linear PC` = apply(SNP.data, 2, function(X) coef(summary(glm(Y~X+AA_NL_PC+study_design[,"Population"], family = binomial)))[,4][2])))}
-    
-    counter <<- 0
-    nb_aa <<- ncol(AA.data)
-    ptm <<- proc.time()
-    cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
-    res = parApply(cl,AA.data, 2, analyse_AA)
-    stopCluster(cl)
-    print(paste0(Sys.time(),": ", nb_aa," has been analysed by logistic regression, 100% done!"))
-    
-    SNPcol = rep(1:ncol(SNP.data), length(res[[1]]))
-    SNP_Tag = rep(unlist(mapply(function(tag, size) rep(tag,size), SNP.scenarios$bio_tag, SNP.scenarios$size)), length(res[[1]]))
-    CorrectionCol = as.factor(rep(names(res[[1]]), each = ncol(SNP.data)))
-    
-    res = do.call(cbind, lapply(names(res), function(aa_id) {
-      do.call(rbind, unname(lapply(res[[aa_id]], function(SNP) {
-        setNames(data.frame(unname(SNP)), aa_id)})))}))
-    res = cbind(`SNP` = SNPcol, `SNP_Tag` = SNP_Tag, `Correction` =  CorrectionCol, res)}
-  
-  SKAT_analyse <- function() {
-    if(trace) print(paste(Sys.time(),": Computing SkAT with ",  nb_cpu, " CPU(s)"))
-    skat_it = {
-      if(skat_LW) function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear.weighted")$p.value)
-      else if(skato_LW) function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear.weighted", method = "optimal.adj")$p.value)
-      else if(skat_L) function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear")$p.value)
-      else if(skato_L) function(HO) lapply(SNP_batch, function(batch) SKAT(SNP.data[,batch], HO, kernel = "linear", method = "optimal.adj")$p.value)}
-    
-    analyse_AA <- function(Y) {c(
-      if(WO_correction) list(`Without correction` = skat_it(SKAT_Null_Model(Y~1, out_type = "D"))),
-      if(W_human_group)  list(`With human group` = skat_it(SKAT_Null_Model(Y ~ study_design[,"Population"], out_type = "D"))),
-      if(W_strain_group) list(`With strain group` = skat_it(SKAT_Null_Model(Y ~ study_design[,"Strain"], out_type = "D"))),
-      if(W_both_groups) list(`With both groups` = skat_it(SKAT_Null_Model(Y ~ study_design[,"Population"]+study_design[,"Strain"], out_type = "D"))),
-      if(W_human_PC) list(`With human PC` = skat_it(SKAT_Null_Model(Y ~ SNP_PC, out_type = "D"))),
-      if(W_strain_PC) list(`With strain PC` = skat_it(SKAT_Null_Model(Y ~ AA_PC, out_type = "D"))),
-      if(W_both_PC) list(`With both PC` = skat_it(SKAT_Null_Model(Y ~ AA_PC + SNP_PC, out_type = "D"))),
-      if(W_non_linear_PC) list(`With non linear PC` = skat_it(SKAT_Null_Model(Y ~ AA_NL_PC, out_type = "D"))))}
-    
-    flip_SNP <- function(SNP){
-      nsample = nrow(SNP)
-      apply(SNP,2, function(S) { 
-        if(sum(S)/nsample > 1) 
-          unlist(lapply(S, function(s) {
-            if(s==0) 2 
-            else if(s==2) 0 
-            else 1}))
-        else S })}
-    
-    #SNP = flip_SNP(SNP.data)
-    bio_tag_key = unique(SNP.scenarios$bio_tag)
-    SNP_batch = setNames(lapply(bio_tag_key, function(tag) unlist(filter(SNP.scenarios, bio_tag == tag)$id)), bio_tag_key)
-    
-    cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
-    res = parApply(cl,AA.data, 2, analyse_AA)     #res = apply(AA, 2, analyse_AA)
-    stopCluster(cl)
-    
-    SNP_Tag = rep(names(SNP_batch), length(res[[1]]))
-    correction_col = as.factor(rep(names(res[[1]]),  each = length(SNP_batch)))
-    res = as.data.frame(do.call(cbind,lapply(res, function(aa) {
-      do.call(rbind, lapply(aa, function(correction) {
-        do.call(rbind, lapply(correction, function(SNP_tag) {
-          SNP_tag}))}))})))
-    colnames(res) <- colnames(AA.data)
-    rownames(res) <- NULL
-    res = as.data.frame(cbind(`SNP_Tag` = SNP_Tag, `Correction` = correction_col, res))}
-  
-  GT_analyse <- function() {
-    if(trace) print(paste(Sys.time(),": Computing global test with ",  nb_cpu, " CPU(s)"))
-    analyse_AA <- function(Y) {c(
-      if(WO_correction) list(`Without correction` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y, SNP.data[,batch]))["p-value"]))),
-      if(W_human_group) list(`With human group` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ study_design[,"Population"], SNP.data[,batch]))["p-value"]))),
-      if(W_strain_group) list(`With strain group` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ study_design[,"Strain"], SNP.data[,batch]))["p-value"]))),
-      if(W_both_groups) list(`With both groups` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ study_design[,"Population"]+study_design[,"Strain"], SNP.data[,batch]))["p-value"]))),
-      if(W_human_PC) list(`With human PC` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ SNP_PC, SNP.data[,batch]))["p-value"]))),
-      if(W_strain_PC) list(`With strain PC` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ AA_PC, SNP.data[,batch]))["p-value"]))),
-      if(W_both_PC) list(`With both PC` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y ~ SNP_PC + AA_PC, SNP.data[,batch]))["p-value"]))),
-      if(W_non_linear_PC) list(`With non linear PC` = lapply(SNP_batch, function(batch) as.numeric(result(gt(Y + AA_NL_PC, SNP.data[,batch]))["p-value"]))))}
-    
-    bio_tag_key = unique(SNP.scenarios$bio_tag)
-    SNP_batch = setNames(lapply(bio_tag_key, function(tag) unlist(filter(SNP.scenarios, bio_tag == tag)$id)), bio_tag_key)
-    
-    cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
-    res = parApply(cl,AA.data, 2, analyse_AA)     #res = apply(AA, 2, analyse_AA)
-    stopCluster(cl)
-    
-    SNP_Tag = rep(names(SNP_batch), length(res[[1]]))
-    correction_col = as.factor(rep(names(res[[1]]),  each = length(SNP_batch)))
-    res = as.data.frame(do.call(cbind,lapply(res, function(aa) {
-      do.call(rbind, lapply(aa, function(correction) {
-        do.call(rbind, lapply(correction, function(SNP_tag) {
-          SNP_tag}))}))})))
-    colnames(res) <- colnames(AA.data)
-    rownames(res) <- NULL
-    res = as.data.frame(cbind(`SNP_Tag` = SNP_Tag, `Correction` = correction_col, res))}
-  
-  G2_analyse <- function() {
-    bio_tag_key = unique(SNP.scenarios$bio_tag)
-    SNP_batch_id = setNames(lapply(bio_tag_key, function(tag) unlist(filter(SNP.scenarios, bio_tag == tag)$id)), bio_tag_key)
-    bio_tag_key = unique(AA.scenarios$bio_tag)
-    AA_batch_id = setNames(lapply(bio_tag_key, function(tag) unlist(filter(AA.scenarios, bio_tag == tag)$id)), bio_tag_key)
-    if(trace) print(paste(Sys.time(),": Computing G2 with ",  nb_cpu, " CPU(s)"))
-    analyse_AA <- function(Y) {
-      lapply(SNP_batch_id, function(X) G2(AA.data[,Y], SNP.data[,X],nperm = 2500)$std_pval)
-    }
-    cl = makeCluster(nb_cpu, type = "FORK", outfile='outcluster.log')
-    res = parLapply(cl,AA_batch_id, analyse_AA)     #res = apply(AA, 2, analyse_AA)
-    stopCluster(cl)
-    res = do.call(cbind, lapply(res, function(AA) do.call(rbind, AA)))
-    colnames(res) <- unique(AA.scenarios$bio_tag)
-    cbind("SNP_Tag" = paste0("SNP_", unique(SNP.scenarios$bio_tag)), as.data.frame(res))}
-  
-  res = c(
-    if(logistic) list(`logistic` = logistic_analyse()),
-    if(gt) list(`gt` = GT_analyse()),
-    if(G2_analysis) list(`G2_analysis` = G2_analyse()),
-    if(skat_LW | skat_L | skato_LW | skato_L) `Skat` = SKAT_analyse())
-  
-  #save(AA_PC, SNP_PC, res, AA.data,SNP.data, AA.scenarios, SNP.scenarios, file ="res-savestates.RData")
-  if(trace) print(paste(Sys.time()," : Analysis took ", (proc.time() - ptm)["elapsed"]/60, "minutes"))
-  
-  detach(data)
-  detach(correction)
-  detach(analyse)
-  list(`data` = data, `results` = res, `PC` = SNP_PC)}

@@ -225,7 +225,6 @@ plot_median_pvalue_trend <- function(res) {
     theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=18,face="bold"), plot.title = element_text(size = 18))
   ggsave(filename = paste0(getwd(), "/gen-data/","framework-trend",".png"), dpi = 300)}
 
-
 get_thresholds <- function(res) {
   threshold_seter = res[["gt"]]
   threshold_1C = -log10(0.05/((ncol(threshold_seter)-2)*(nrow(threshold_seter)/length(levels(threshold_seter$Correction)))))
