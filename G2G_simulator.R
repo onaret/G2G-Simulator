@@ -12,11 +12,12 @@ library(ggplot2)
 #source("src/G2.R")
 
 source("src/model/G2G.R")
-source("src/model/GWAS.R")
-source("src/controller/G2G.R")
-source("src/controller/GWAS.R")
 source("src/view/G2G.R")
+source("src/controller/G2G.R")
+
+source("src/model/GWAS.R")
 source("src/view/GWAS.R")
+source("src/controller/GWAS.R")
 
 trace <- TRUE
 nb_cpu = 20

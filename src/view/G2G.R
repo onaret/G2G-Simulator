@@ -13,10 +13,10 @@ plot_G2G_setup <- function(G2SR, save = FALSE, out = TRUE, lim = 15, title ="", 
   G2GSRD = as.data.frame(do.call(cbind, lapply(G2SR$pvalues, function(ele) ele$pval_diff)))
   t=mapply(function(res, name) {
     colnames(res) = gsub("WO_correction.pval", "Without correction", colnames(res))
-    colnames(res) = gsub("W_human_groups.pval", "With human groups", colnames(res))
-    colnames(res) = gsub("W_human_PCs.pval", "With human PCs", colnames(res))
-    colnames(res) = gsub("W_strain_groups.pval", "With strain groups", colnames(res))
-    colnames(res) = gsub("W_both.pval", "With both human and strain covariates", colnames(res))
+    colnames(res) = gsub("W_host_groups.pval", "With host groups", colnames(res))
+    colnames(res) = gsub("W_host_PCs.pval", "With host PCs", colnames(res))
+    colnames(res) = gsub("W_pathogen_groups.pval", "With pathogen groups", colnames(res))
+    colnames(res) = gsub("W_both.pval", "With both host and pathogen covariates", colnames(res))
     res = res %>% gather(factor_key = T)
     p <- ggplot(res, aes(key, value))
     p <- if(out == TRUE) {
@@ -66,7 +66,7 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
       res = res %>% gather(AA, pvalue, -SNP_Tag, -Correction, convert = T)
       res$pvalue = -log10(res$pvalue)
       association_table = get_association_AA_SNP_tag(AA.scenarios, res)
-      association_AA_tag = do.call(rbind, lapply(1:nrow(AA.scenarios), function(num) do.call(rbind, lapply(AA.scenarios[num,]$id, function(aa_id) data_frame("AA" = aa_id, "AA_Tag" = factor(AA.scenarios[num,]$bio_tag, levels = AA.scenarios$bio_tag) )))))
+      association_AA_tag = do.call(rbind, lapply(1:nrow(AA.scenarios), function(num) do.call(rbind, lapply(AA.scenarios[num,]$id, function(aa_id) tibble("AA" = aa_id, "AA_Tag" = factor(AA.scenarios[num,]$bio_tag, levels = AA.scenarios$bio_tag) )))))
       res = right_join(association_table, res, by = c("SNP_Tag", "AA"))
       res = right_join(association_AA_tag, res, by =c("AA"))
       res$associated[is.na(res$associated)] <- F
@@ -77,13 +77,13 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
         res = filter(res, Correction==correction)
         res = arrange(res,associated)
         p <- ggplot(res, aes(SNP_Gene, pvalue, color = AA_Position, size=associated))
-        p + geom_point() + geom_hline(yintercept = -log10(threshold), colour = "red") + labs(title = paste0("Collapsed on SNP in human side with ",analyse), x = "SNP Gene")
+        p + geom_point() + geom_hline(yintercept = -log10(threshold), colour = "red") + labs(title = paste0("Collapsed on SNP in host side with ",analyse), x = "SNP Gene")
         ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, "-",correction,".png"), dpi = 300)}))}
     
     else if(analyse == "G2"){
       res = res[[analyse]]
       threshold = 0.05/(ncol(res)*nrow(res))
-      association_table = data_frame(`SNP_Tag` = res[,"SNP_Tag"], `AA_Tag` = factor(colnames(res[2:ncol(res)])), `associated`=T)
+      association_table = tibble(`SNP_Tag` = res[,"SNP_Tag"], `AA_Tag` = factor(colnames(res[2:ncol(res)])), `associated`=T)
       res = res %>% gather(AA_Tag, pvalue, -SNP_Tag, factor_key = T)
       res$pvalue = -log10(res$pvalue)
       res = right_join(association_table, res, by = c("SNP_Tag", "AA_Tag"))
@@ -94,7 +94,7 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
       colnames(res) <- gsub("AA_Tag", "AA_Position", colnames(res))
       colnames(res) <- gsub("SNP_Tag", "SNP_Gene", colnames(res))
       p <- ggplot(res, aes(SNP_Gene, pvalue, color = AA_Position, size=associated))
-      p + geom_point() + geom_hline(yintercept = -log10(threshold), colour = "red") + labs(title = paste0("Collapsed on SNP in human side and AA in viral side with G2"), x = "SNP Gene")
+      p + geom_point() + geom_hline(yintercept = -log10(threshold), colour = "red") + labs(title = paste0("Collapsed on SNP in host side and AA in viral side with G2"), x = "SNP Gene")
       #     theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
       ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, ".png"), dpi = 300)}}))}
 
@@ -234,4 +234,4 @@ get_thresholds <- function(res) {
   
   threshold_seter = res[["logistic"]]
   threshold_logistic = -log10(0.05/((ncol(threshold_seter)-3)*(nrow(threshold_seter)/length(levels(threshold_seter$Correction)))))
-  gather(data_frame(`Threshold Logistic R` = threshold_logistic, `Threshold Collapsing SNPs` = threshold_1C, `Threshold Collapsing SNPs and AAPV` =threshold_2C), collapsing, pvalue)}
+  gather(tibble(`Threshold Logistic R` = threshold_logistic, `Threshold Collapsing SNPs` = threshold_1C, `Threshold Collapsing SNPs and AAPV` =threshold_2C), collapsing, pvalue)}
