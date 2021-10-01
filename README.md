@@ -22,17 +22,17 @@ Similarly to G2G simplified, a study design must be fined in term of host popula
 G2G_conf(SNP, AA, association, ...)   
 
 ```R
-G2G_conf =	get_G2G_conf(
-		association(
-			SNP(1),
-			AA(1,
-				stratified = c("A","B"),
-				fst_strat = 0.2,
-				beta = 0.5,
-				bio_tag = 'tag'),
-			replicate = 100),
-		SNP(100, stratified = "full", fst_strat = 0.2),
-		SNP(800)))
+G2G_conf = get_G2G_conf(
+	association(
+		SNP(1),
+		AA(1,
+		  stratified = c("A","B"),
+		  fst_strat = 0.2,
+		  beta = 0.5,
+		  bio_tag = 'tag'),
+		replicate = 100),
+	SNP(100, stratified = "full", fst_strat = 0.2),
+	SNP(800)))
 ```
 
 #### Arguments: 
@@ -161,8 +161,8 @@ See the script in paper/parse_paper_dataser.R to plot the result
 
 ```R
 study_design = get_study_design(structure = list(
-	`P1` = c(`A` = 1500, `B` = 1000), 
-	`P2` = c(`A` = 1000, `B`  = 1500)))
+  `P1` = c(`A` = 1500, `B` = 1000), 
+  `P2` = c(`A` = 1000, `B`  = 1500)))
 ```
 
 #### Description:  
@@ -249,15 +249,14 @@ The results are automatically plotted in the **tag** folder.
 ![test_G2G_setup()](doc/G2G_setup.png "G2G setup")
 
 
-
 # OPTION 3: Simulate Case-Control GWAS
 
 #### Define populations
 
 ```R
 my_population = generate_population_for_GWAS(list(
-	`P1` = c(`case` = 200, `control` = 400), 
-	`P2` = c(`case` = 400, `control`  = 200)))
+  `P1` = c(`case` = 200, `control` = 400), 
+  `P2` = c(`case` = 400, `control`  = 200)))
 ```
 Here we want two sub-populations P1 and P2. 
 * From P1, 200 individuals are in case group and 400 in control group.
