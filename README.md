@@ -24,15 +24,15 @@ G2G_conf(SNP, AA, association, ...)
 ```R
 G2G_conf = get_G2G_conf(
 	association(
-		SNP(1),
-		AA(1,
+		SNP(size = 1),
+		AA(size = 1,
 		  stratified = c("A","B"),
 		  fst_strat = 0.2,
 		  beta = 0.5,
 		  bio_tag = 'tag'),
 		replicate = 100),
-	SNP(100, stratified = "full", fst_strat = 0.2),
-	SNP(800)))
+	SNP(size = 100, stratified = "full", fst_strat = 0.2),
+	SNP(size = 800)))
 ```
 
 #### Arguments: 
