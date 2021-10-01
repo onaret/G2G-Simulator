@@ -11,7 +11,7 @@ source("G2G_simulator.R")
 
 # OPTION 1: Simulate a full G2G study
 
-Similarly to G2G simplified, a study design must be fined in term of population and strain distribution.   
+Similarly to G2G simplified, a study design must be fined in term of host populations and pathogen strains distribution.   
 
 ## A. Define G2G data structure
 
@@ -22,7 +22,7 @@ Similarly to G2G simplified, a study design must be fined in term of population 
 G2G_conf(SNP, AA, association, ...)   
 
 ```R
-G2G_conf_data =	get_G2G_conf(
+G2G_conf =	get_G2G_conf(
 		association(
 			SNP(1),
 			AA(1,
@@ -41,9 +41,9 @@ G2G_conf_data =	get_G2G_conf(
   * **Usage:** SNP(size, stratified = NA, fst_strat=NA, biased = NA, fst_bias=NA, bio_tag=NA)
   * **Arguments:**
     * **size**, _int_: the number of SNPs
-    * **stratified**, _vector of strings_: host sub-population groups order give the direction of the stratification from higher MAF to lower MAF
+    * **stratified**, _vector of strings_: host populations groups order give the direction of the stratification from higher MAF to lower MAF
     * **fst_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **stratified**
-    * **biased**, _vector of strings_: include a bias such that, the pathogen strain groups are associated with host stratification (regardless of the defined sub-populations groups). The order gives the direction from higher MAF to lower MAF
+    * **biased**, _vector of strings_: include a bias such that, the pathogen strains are associated with host stratification (regardless of the defined populations). The order gives the direction from higher MAF to lower MAF
     * **fst_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **biased**
 
 * **AA**, _fun_:  AA function call
@@ -51,9 +51,9 @@ G2G_conf_data =	get_G2G_conf(
   * **Usage:** AA(size, stratified = NA, fst_strat=NA, biased = NA, fst_bias=NA, beta=NA, bio_tag=NA)
   * **Arguments:**
     * **size**, _int_: the number of pathogen variant
-    * **stratified**, _vector of strings_: pathogen strain groups order give the direction of the stratification from higher MAF to lower MAF 
+    * **stratified**, _vector of strings_: pathogen strains order give the direction of the stratification from higher MAF to lower MAF 
     * **fst_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **stratified**
-    * **biased**, _vector of strings_:  include a bias such that, the host sub-population groups are associated with pathogen stratification (regardless of the defined strain groups). The order gives the direction from higher MAF to lower MAF
+    * **biased**, _vector of strings_:  include a bias such that, the host populations are associated with pathogen stratification (regardless of the defined pathogen strains). The order gives the direction from higher MAF to lower MAF
     * **fst_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **biased**
     * **beta**, _int_: in case of association (and therefore inside the association() function call (see bellow)), the log of odd ratio.
 
@@ -67,12 +67,12 @@ G2G_conf_data =	get_G2G_conf(
 
 * **...**, _fun_: other AA, SNP or association function calls
 
-* **bio_tag**, __string__: a tag that will be added in the generated dataset.
+* **bio_tag**, _string_: a tag that will be added in the generated dataset.
 
-## B. Define the host sub-populations and pathogen strains groups structure
+## B. Define the host populations and pathogen strains distributions
 
 #### Description:  
-**get_study_design** defines the host sub-populations and pathogen strains groups structure
+**get_study_design** defines the host populations and pathogen strains distributions
 
 #### Usage:  
 get_study_design(structure)  
@@ -84,7 +84,7 @@ study_design =  get_study_design(list(
 ```
 
 #### Arguments:
-**structure**, _list of nammed vector of nammed int_:  defines the study design with the host subpopulations P1 and P2 and their respective proportion in strains A and B  
+**structure**, _list of nammed vector of nammed int_:  defines the study design with the host populations P1 and P2 and their respective proportion in pathogen strains A and B  
 > eg : Here we have the same number of samples in each host population (500)  with each 250 with strain A and strain B  
 
 ## C. Generate G2G data
@@ -126,7 +126,7 @@ analyse_G2G(G2G_data, correction, nb_cpu = 40)
 
 ```R
 analyse_G2G(G2G_data,
-  get_correction(WO_correction = T, W_human_PC = T, W_strain_group = T, W_strain_groups_human_PC = T), 
+  get_correction(WO_correction = T, W_host_PC = T, W_pathogen_group = T, W_pathogen_groups_host_PC = T), 
   nb_cpu = 40)
 ```
 
@@ -143,12 +143,12 @@ analyse_G2G(G2G_data,
 
 * **correction**, _fun_:  get_correction function call
   * **description:** defines the series of corrections to assess
-  * **Usage:** get_correction(WO_correction = F, W_human_PC = F, W_strain_group = F, W_strain_groups_human_PC = F)
+  * **Usage:** get_correction(WO_correction = F, W_human_PC = F, W_pathogen_group = F, W_pathogen_groups_host_PC = F)
   * **Arguments:**
     * **WO_correction**, _bool_ : no correction
-    * **W_strain_group**, _bool_: with strain groups
-    * **W_human_PC**, _bool_: with 5 first PCs from SNPs data (imputed human groups)
-    * **W_strain_groups_human_PC**, _bool_: with 5 first PCs from SNPs data and strain groups
+    * **W_pathogen_group**, _bool_: with pathogen strains
+    * **W_host_PC**, _bool_: with 5 first PCs from SNPs data (imputed human groups)
+    * **W_pathogen_groups_host_PC**, _bool_: with 5 first PCs from hosts data and pathogen strains
 
 * **nb_cpu**, _int_ : number of available CPU to use
 
@@ -157,7 +157,7 @@ See the script in paper/parse_paper_dataser.R to plot the result
 
 # OPTION 2: Simulate a single genome-to-genome (G2G) association case
 
-## A. Define host's and pathogen's sub-populations distribution
+## A. Define host's populations and pathogen's strains distribution
 
 ```R
 study_design = get_study_design(structure = list(
@@ -172,7 +172,7 @@ study_design = get_study_design(structure = list(
 get_study_design(structure)  
 
 #### Arguments:
-**structure**, _list of nammed vector of nammed int_:  defines the study design with the host subpopulations P1 and P2 and their respective proportion in strains A and B  
+**structure**, _list of nammed vector of nammed int_:  defines the study design with the host populations P1 and P2 and their respective proportion in strains A and B  
 > eg : Here we have the same number of samples in each host population (2500) but in P1 1500 samples have strain A and 1000 strain B and conversely in P2, 1000 samples have strain A and 1500 strain B.   
 
 
@@ -194,22 +194,22 @@ get_G2G_setup(rep, s_stratified = NA, s_biased = NA, a_stratified = NA, a_biased
 
 **rep**, _int_: is the number of repetition you want to execute to draw the pvalue distribution.  
 
-**s_stratified**, _vector of strings_: host sub-population groups order give the direction of the stratification from higher MAF to lower MA
+**s_stratified**, _vector of strings_: host populations groups order give the direction of the stratification from higher MAF to lower MA
 > eg : here there will be a higher minor allele frequencyi (MAF) in population P1 than in population P2.
 
-**s_biased**, _vector of strings_: include a bias such that, the pathogen strain groups are associated with host stratification (regardless of the defined sub-populations groups). The order gives the direction from higher MAF to lower MAF
+**s_biased**, _vector of strings_: include a bias such that, the pathogen strains are associated with host stratification (regardless of the defined sub-populations groups). The order gives the direction from higher MAF to lower MAF
 > eg : Here there will be a higher MAF for the hosts that have strain A than strain B.
 > In conlcusion, the MAF decreases with a maximum for P1 with strain A (P1.A) to P1.B, P2.A and finally P2.B 
 
 Similarly for the variants on the pathogen side...  
-**a_stratified**,  _vector of strings_: pathogen strain groups order give the direction of the stratification from higher MAF to lower MAF
+**a_stratified**,  _vector of strings_: pathogen strains order give the direction of the stratification from higher MAF to lower MAF
 
-**a_biased**, _vector of strings_: include a bias such that, the host sub-population groups are associated with pathogen stratification (regardless of the defined strain groups). The order gives the direction from higher MAF to lower MAF
+**a_biased**, _vector of strings_: include a bias such that, the host populations groups are associated with pathogen stratification (regardless of the defined pathiogen strains). The order gives the direction from higher MAF to lower MAF
 
 <!---_
 **associated_strains** in case of association it define the pathogen strain associated.  
 
-**associated_populations** in case of association it define the the human sub-population associated.  
+**associated_populations** in case of association it define the the host populations associated.  
 -->
 
 
@@ -217,16 +217,16 @@ Similarly for the variants on the pathogen side...
 
 ```R
 test_G2G_setup(study_design, G2G_setup, 
-  fst_pop_strat = 0.2, 
-  fst_pop_bias = 0.2, 
-  fst_strain_strat = 0.2,
+  fst_host_strat = 0.2, 
+  fst_host_bias = 0.2, 
+  fst_pathogen_strat = 0.2,
   tag = 'demo')
 ```
 #### Description:  
 **test_G2G_setup** runs the simplified G2G
 
 #### Usage:  
-test_G2G_setup(study_design, G2G_setup, fst_pop_strat = NA, fst_pop_bias = NA, fst_strain_strat = NA, fst_strain_bias=NA, tag = 'unnamed')  
+test_G2G_setup(study_design, G2G_setup, fst_host_strat = NA, fst_host_bias = NA, fst_pathogen_strat = NA, fst_pathogen_bias=NA, tag = 'unnamed')  
 
 #### Arguments: 
 
@@ -234,17 +234,17 @@ test_G2G_setup(study_design, G2G_setup, fst_pop_strat = NA, fst_pop_bias = NA, f
 
 **G2G_setup**, _fun_: get_G2G_setup function function call
 
-**fst_pop_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **s_stratified**
+**fst_host_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **s_stratified**
 
-**fst_pop_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **s_biased**
+**fst_host_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **s_biased**
 
-**fst_strain_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **a_stratified**
+**fst_pathogen_strat**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **a_stratified**
 
-**fst_strain_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **a_biased**
+**fst_pathogen_bias**, _int_: is the fixation coefficient that defines the stratification magnitude defined by **a_biased**
 
 **tag** folder name to save results
 
-The results are automatically plotted in the **tag** folder.  
+The results are automatically plotted in the **tag** folder.
 
 ![test_G2G_setup()](doc/G2G_setup.png "G2G setup")
 
@@ -252,16 +252,16 @@ The results are automatically plotted in the **tag** folder.
 
 # OPTION 3: Simulate Case-Control GWAS
 
-#### Define population
+#### Define populations
 
 ```R
 my_population = generate_population_for_GWAS(list(
 	`P1` = c(`case` = 200, `control` = 400), 
 	`P2` = c(`case` = 400, `control`  = 200)))
 ```
-Here we want two sub-populations P1 and P2.  
-* From P1, 200 individuals are in case group and 400 in control group.  
-* From P2, 400 individuals are in case group and 200 in control group.  
+Here we want two sub-populations P1 and P2. 
+* From P1, 200 individuals are in case group and 400 in control group.
+* From P2, 400 individuals are in case group and 200 in control group.
 
 #### Define genotyping data & run analysis
 
@@ -274,11 +274,11 @@ GWAS_result = GWAS_scenario(populations = my_population,
  fst_strat = 0.2)
 ```
 Here we want 100,040 SNPs, neutral and causal, stratified or not
-* Number of neutral SNP is 100,000  
-* On this 5% will be stratified  
-* 20 non stratified causal SNP will be added with R coefficient between 1 and 2  
-* 20 stratified causal SNP will be added with R coefficient between 1 and 2   
-* Fixation coefficient for making stratification strength is 0.2  
+* Number of neutral SNP is 100,000
+* On this 5% will be stratified
+* 20 non stratified causal SNP will be added with R coefficient between 1 and 2
+* 20 stratified causal SNP will be added with R coefficient between 1 and 2
+* Fixation coefficient for making stratification strength is 0.2
 
 
 #### Plot results
