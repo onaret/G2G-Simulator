@@ -11,7 +11,7 @@ source("G2G_simulator.R")
 
 # OPTION 1: Simulate a full G2G study
 
-Similarly to G2G simplified, a study design must be fined in term of host populations and pathogen strains distribution.   
+Similarly to G2G simplified, a study design must be fined in term of host populations (population P1, P2...) and pathogen strains distribution (strain A, B,...).   
 
 ## A. Define G2G data structure
 
