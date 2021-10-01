@@ -39,7 +39,11 @@ plot_G2G_setup <- function(G2SR, save = FALSE, out = TRUE, lim = 15, title ="", 
 
 
 ###G2G full scenario methods
-plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
+plot_collapsed_G2G <- function(G2G_results, G2G_conf, analyse = 'logistic', file_tag="") {
+  
+  res = G2G_results$results
+  AA.scenarios = G2G_conf$AA.scenarios
+  
   invisible(lapply(names(res), function(analyse) {
     if(analyse == "logistic") {
       res = res[[analyse]]
@@ -55,10 +59,13 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
       invisible(lapply(levels(res$Correction), function(correction) {
         colnames(res) <- gsub("SNP_Tag", "SNP_Gene", colnames(res))
         res = filter(res, Correction==correction)
-        res = arrange(res,associated)
-        p <- ggplot(res, aes(SNP, pvalue, shape=associated))
-        p + geom_point(aes(color=SNP_Gene)) + geom_hline(yintercept = -log10(threshold), color = "red") + labs(title = "G2G Uncollapsed Logistic regression results", x = "SNP")
-        ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, "-",correction,".png"), dpi = 300)}))}
+        colnames(res)[3] = 'causal'
+        res = arrange(res, causal)
+        p <- ggplot(res, aes(SNP, pvalue, shape=causal))
+        p + geom_point(aes(color=SNP_Gene)) + 
+          geom_hline(yintercept = - log10(threshold), color = "red") + 
+          labs(title = "G2G Uncollapsed Logistic regression results", x = "SNP")
+        ggsave(filename = paste0(getwd(), "/gen-data/", file_tag,analyse, "-", correction, ".png"), dpi = 300)}))}
     
     else if(analyse == "skat-L" | analyse == "skato-L"|analyse == "skato-LW"| analyse == "skat-LW" | analyse == "gt") {
       res = res[[analyse]]
@@ -98,7 +105,7 @@ plot_collapsed_G2G <- function(res, AA.scenarios, analyse, file_tag="") {
       #     theme(axis.text = element_text(size=12, angle = 90, hjust = 1), axis.title=element_text(size=32,face="bold"), plot.title = element_text(size = 36)) +
       ggsave(filename = paste0(getwd(), "/gen-data/",file_tag,analyse, ".png"), dpi = 300)}}))}
 
-get_association_AA_SNP_tag <- function(AA.scenario,res) {
+get_association_AA_SNP_tag <- function(AA.scenario, res) {
   as.data.frame(
     do.call(rbind, mapply(function(AA_id, associated_SNP_tag){
       if(!is.null(unlist(associated_SNP_tag))) {
@@ -114,21 +121,21 @@ get_association_AA_SNP <- function(AA.scenario) {
         do.call(rbind, lapply(unlist(SNP), function(SNP){data.frame(SNP, AA, `associated` = T)}))}))}},
     AA.scenario$id, AA.scenario$associated_SNPs, SIMPLIFY = F)))}
 
-plot_G2G_on_tags <- function(res, AA.scenarios, SNP.scenarios) {
+plot_G2G_on_tags <- function(res, AA.scenarios, SNP.scenarios, analyse = 'logistic') {
   threshold = 0.05/(ncol(res)*nrow(res))
   
-  res=res$logistic
+  res=res$results[[analyse]]
   
   res_tidy = res %>% gather(AA, pvalue, -SNP, -Correction, factor_key = T)
-  res_tidy = do.call(rbind, mapply(function(tag,id) {
+  res_tidy = do.call(rbind, mapply(function(tag, id) {
     data.frame(SNP.tag = as.factor(tag), filter(res_tidy, SNP %in% unlist(id)))}
     , SNP.scenarios$id_tag, SNP.scenarios$id, SIMPLIFY = F))
-  res_tidy = do.call(rbind, mapply(function(tag,id) {
+  res_tidy = do.call(rbind, mapply(function(tag, id) {
     data.frame(AA.tag = as.factor(tag), filter(res_tidy, AA %in% unlist(id)))}
     , AA.scenarios$id_tag, AA.scenarios$id, SIMPLIFY = F))
   res_tidy$pvalue = -log10(as.numeric(res_tidy$pvalue))
   
-  plot_with_correction <- function(...,save = F) {
+  plot_with_correction <- function(..., save = F) {
     correction=c(...)
     p <- ggplot(filter(res_tidy, Correction %in% correction), aes(AA.tag, pvalue, colour=SNP.tag, fill=Correction))
     p + geom_boxplot(outlier.color = "grey") + 

@@ -7,30 +7,30 @@ library(ggplot2)
 library(tidyr)
 library(parallel)
 
-#Load 'G2G_generated.RData', the data generated for the simulation by 
+#Load 'G2G_results.RData', the data generated for the simulation by 
 # - Running the script 'G2G-Simulato/paper/generate_paper_dataset.R', 
 #   to generate a new dataset in 'G2G-Simulator/gen-data' with the same parameters as the one in the paper 
 # - Downloading from zenodo at https://zenodo.org/record/1154600, 
 #   to use the exact same dataset as the one in the paper
 
-load("G2G-Simulator/gen-data/G2G_generated.RData")
+load("G2G-Simulator/gen-data/G2G_results.RData")
 
 ####Make the results plot friendly
-results = G2G_generated$results$logistic
+results = G2G_results$results$logistic
 
 threshold = 0.05/((ncol(results)-3)*(nrow(results)/length(levels(results$Correction))))
 results = as.data.frame(results) %>% gather(AA, pvalue,-SNP, -Correction, -SNP_Tag, convert = T)
 
-SNP_nb = do.call(sum, as.list(G2G_generated$data$SNP.scenarios$size))
+SNP_nb = do.call(sum, as.list(G2G_results$data$SNP.scenarios$size))
 results = cbind(
   `AA_biotag` = unlist(mapply(function(size, bio_tag) 
     rep(bio_tag, size * SNP_nb * length(levels(results$Correction))), 
-    G2G_generated$data$AA.scenarios$size, 
-    G2G_generated$data$AA.scenarios$bio_tag)), 
+    G2G_results$data$AA.scenarios$size, 
+    G2G_results$data$AA.scenarios$bio_tag)), 
   results)
 
 results$pvalue = -log10(as.numeric(results$pvalue))
-association_table = get_association_AA_SNP(G2G_generated$data$AA.scenarios)
+association_table = get_association_AA_SNP(G2G_results$data$AA.scenarios)
 results = right_join(as.data.frame(association_table), results, by = c("SNP", "AA"))
 results$associated[is.na(results$associated)] <- F
 

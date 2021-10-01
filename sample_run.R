@@ -16,13 +16,13 @@ G2G_conf = get_G2G_conf(
   SNP(100, stratified = "full", fst_strat = 0.2),
   SNP(800), bio_tag = 'test')
 
-G2G_data =	get_G2G_data(
-	study_design,
-	G2G_conf)
+G2G_data =	get_G2G_data(study_design, G2G_conf)
 
-res = analyse_G2G(G2G_data = G2G_data, 
+G2G_results = analyse_G2G(G2G_data = G2G_data, 
                   correction = get_correction(WO_correction = T, W_host_PC = T, W_pathogen_PC = T, W_both_PC = T, W_pathogen_group = T, W_pathogen_groups_host_PC = T),
                   nb_cpu = 20)
+
+plot_collapsed_G2G(G2G_results, G2G_conf)
 
 ###Option 2: Single G2G pattern analysis
 
