@@ -22,17 +22,60 @@ Similarly to G2G simplified, a study design must be fined in term of host popula
 G2G_conf(SNP, AA, association, ...)   
 
 ```R
-G2G_conf = get_G2G_conf(
-	association(
-		SNP(size = 1),
-		AA(size = 1,
-		  stratified = c("A","B"),
-		  fst_strat = 0.2,
-		  beta = 0.5,
-		  bio_tag = 'tag'),
-		replicate = 100),
-	SNP(size = 100, stratified = "full", fst_strat = 0.2),
-	SNP(size = 800)))
+G2G_conf =G2G_conf(
+      association(
+        AA(
+          size=1,
+          stratified = c("A","B"),
+          fst_strat = 0.2,
+          biased = c("P1","P2"),
+          fst_bias = 0.01,
+          beta = 0.3,
+          bio_tag = "Asso_Stratified_Biased_AA_PG2"),
+        SNP(
+          size=1,
+          stratified = c("P2","P1"),
+          biased = c("B","A"),
+          fst_strat = 0.2,
+          fst_bias = 0.016,
+          bio_tag = "Stratified_biased_SNP"),
+        replicate = 100),
+      association(
+        AA(
+          size=1,
+          beta = 0.3,
+          bio_tag = "Asso_Unstratified_AA"),
+        SNP(
+          size=1,
+          bio_tag = "Unstratified_SNP"),
+        replicate = 100),
+      AA(
+        size=100,
+        stratified = c("A","B"), 
+        biased = c("P1","P2"),
+        fst_strat = 0.2,
+        fst_bias = 0.005, 
+        bio_tag = "Stratified_biased_AA"),
+      SNP(
+        size=100,
+        stratified = c("P1","P2"),
+        biased = c("A","B"),
+        fst_strat = 0.2,
+        fst_bias = 0.016, 
+        bio_tag = "Stratified_biased_SNP"),
+      AA(
+        size=100,
+        stratified = c("A","B"), 
+        fst_strat = 0.2,
+        bio_tag = "Stratified_AA"),
+      SNP(
+        size=10000,
+        stratified = c("P1","P2"),
+        fst_strat = 0.2,
+        bio_tag = "Stratified_SNP"),
+      SNP(
+        size = 40000,
+        bio_tag = "Unstratified_SNP")))
 ```
 
 #### Arguments: 
@@ -152,8 +195,7 @@ analyse_G2G(G2G_data,
 
 * **nb_cpu**, _int_ : number of available CPU to use
 
-See the script in paper/parse_paper_dataser.R to plot the result
-
+See [here](http://www.oliviernaret.com/g2g-sim-visualizer) for the results visualization  
 
 # OPTION 2: Simulate a single genome-to-genome (G2G) association case
 
